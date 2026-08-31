@@ -131,6 +131,7 @@ public final class ElytraCombatConfigScreen extends Screen {
         private EditBox nauseaStrength;
         private EditBox nauseaDuration;
         private EditBox spinIntensity;
+        private EditBox darknessThreshold;
         private EditBox threshold;
         private EditBox damagePerGs;
         private EditBox speedToGs;
@@ -149,21 +150,30 @@ public final class ElytraCombatConfigScreen extends Screen {
             int left = width / 2 - 155;
             addRenderableOnly(new StringWidget(left, 7, 310, 12, title, font));
 
-            nauseaStrength = numberField(left, 25, "Nausea strength (0-10)", Integer.toString(config.freefall.nauseaStrength));
-            nauseaDuration = numberField(left, 47, "Nausea duration (seconds)", Integer.toString(config.freefall.nauseaDurationSeconds));
+            addRenderableOnly(new StringWidget(left, 30, 75, 10, Component.literal("Nausea strength"), font));
+            nauseaStrength = new EditBox(font, left + 75, 25, 75, 20, Component.literal("Nausea strength"));
+            nauseaStrength.setValue(Integer.toString(config.freefall.nauseaStrength));
+            addRenderableWidget(nauseaStrength);
+
+            addRenderableOnly(new StringWidget(left + 155, 30, 85, 10, Component.literal("Nausea duration"), font));
+            nauseaDuration = new EditBox(font, left + 240, 25, 70, 20, Component.literal("Nausea duration"));
+            nauseaDuration.setValue(Integer.toString(config.freefall.nauseaDurationSeconds));
+            addRenderableWidget(nauseaDuration);
+
             addRenderableWidget(CycleButton.onOffBuilder(config.freefall.darkness)
-                    .create(left, 69, 310, 20, Component.literal("Darkness pulses"), (button, value) ->
+                    .create(left, 47, 310, 20, Component.literal("Darkness pulses"), (button, value) ->
                             config.freefall.darkness = value));
             addRenderableWidget(CycleButton.onOffBuilder(config.freefall.shockSound)
-                    .create(left, 91, 310, 20, Component.literal("Shock sound"), (button, value) ->
+                    .create(left, 69, 310, 20, Component.literal("Shock sound"), (button, value) ->
                             config.freefall.shockSound = value));
             addRenderableWidget(CycleButton.onOffBuilder(config.freefall.viewSnap)
-                    .create(left, 113, 310, 20, Component.literal("View snap on disable"), (button, value) ->
+                    .create(left, 91, 310, 20, Component.literal("View snap on disable"), (button, value) ->
                             config.freefall.viewSnap = value));
-            spinIntensity = numberField(left, 135, "Spin intensity (0-3)", Double.toString(config.freefall.spinIntensity));
+            spinIntensity = numberField(left, 113, "Spin intensity (0-3)", Double.toString(config.freefall.spinIntensity));
             addRenderableWidget(CycleButton.onOffBuilder(config.gForce.enabled)
-                    .create(left, 157, 310, 20, Component.literal("G-force damage"), (button, value) ->
+                    .create(left, 135, 310, 20, Component.literal("G-force damage"), (button, value) ->
                             config.gForce.enabled = value));
+            darknessThreshold = numberField(left, 157, "Darkness min Gs (0-500)", Double.toString(config.freefall.darknessThresholdGs));
 
             addRenderableOnly(new StringWidget(left, 184, 55, 10, Component.literal("Threshold"), font));
             threshold = new EditBox(font, left + 55, 179, 45, 20, Component.literal("Threshold"));
@@ -201,6 +211,7 @@ public final class ElytraCombatConfigScreen extends Screen {
                 config.freefall.nauseaStrength = Integer.parseInt(nauseaStrength.getValue().trim());
                 config.freefall.nauseaDurationSeconds = Integer.parseInt(nauseaDuration.getValue().trim());
                 config.freefall.spinIntensity = Double.parseDouble(spinIntensity.getValue().trim());
+                config.freefall.darknessThresholdGs = Double.parseDouble(darknessThreshold.getValue().trim());
                 config.gForce.thresholdGs = Double.parseDouble(threshold.getValue().trim());
                 config.gForce.damagePerGsPerSecond = Double.parseDouble(damagePerGs.getValue().trim());
                 config.gForce.speedToGs = Double.parseDouble(speedToGs.getValue().trim());
@@ -264,13 +275,16 @@ public final class ElytraCombatConfigScreen extends Screen {
             addRenderableWidget(CycleButton.onOffBuilder(config.damageFilter.matchPlayerOwnedEntityDamage)
                     .create(left, 147, 310, 20, Component.literal("Match player-owned entity damage"), (button, value) ->
                             config.damageFilter.matchPlayerOwnedEntityDamage = value));
+            addRenderableWidget(CycleButton.onOffBuilder(config.damageFilter.ignoreFallDamage)
+                    .create(left, 171, 310, 20, Component.literal("Fall damage never disables"), (button, value) ->
+                            config.damageFilter.ignoreFallDamage = value));
 
-            error = new StringWidget(left, 173, 310, 10, Component.empty(), font);
+            error = new StringWidget(left, 197, 310, 10, Component.empty(), font);
             addRenderableOnly(error);
             addRenderableWidget(Button.builder(Component.literal("Done"), button -> done())
-                    .bounds(left, 188, 152, 20).build());
+                    .bounds(left, 212, 152, 20).build());
             addRenderableWidget(Button.builder(Component.literal("Cancel"), button -> cancel())
-                    .bounds(left + 158, 188, 152, 20).build());
+                    .bounds(left + 158, 212, 152, 20).build());
         }
 
         private void done() {

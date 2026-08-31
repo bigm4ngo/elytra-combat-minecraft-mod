@@ -7,6 +7,7 @@ import dev.elytracombat.PhysicalDamage;
 import dev.elytracombat.config.ConfigManager;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -45,7 +46,13 @@ public abstract class ServerPlayerDamageMixin {
                 ? healthLost > 0.0F
                 : healthLost > 0.0F || absorptionLost > 0.0F;
 
-        if (acceptedDamage && !elytraCombat$wornElytra.isEmpty() && DamageFilter.shouldTrigger(source)
+        // isAlive: die() runs inside hurtServer and clears the markers, so without this guard
+        // the fatal hit would freshly disable the (already cleaned) elytra of the corpse.
+        boolean fallDamageIgnored = ConfigManager.get().damageFilter.ignoreFallDamage
+                && source.is(DamageTypeTags.IS_FALL);
+
+        if (self.isAlive() && acceptedDamage && !fallDamageIgnored
+                && !elytraCombat$wornElytra.isEmpty() && DamageFilter.shouldTrigger(source)
                 && !ElytraCooldowns.isDisabled(level, elytraCombat$wornElytra)) {
             // Fresh disable only: hits never extend an ongoing cooldown, and damage the mod
             // itself deals (G-force) lands on an already disabled elytra, so it is ignored here.

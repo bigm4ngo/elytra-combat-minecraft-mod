@@ -73,6 +73,13 @@ public final class ElytraCombatConfig {
         @SerializedName("spin_intensity")
         public double spinIntensity = 1.0;
 
+        /**
+         * Minimum G load (see g_force.speed_to_gs) the current fall must reach before darkness
+         * pulses apply. 0 applies darkness on every mid-flight disable.
+         */
+        @SerializedName("darkness_threshold_gs")
+        public double darknessThresholdGs = 20.0;
+
         public void validate() {
             if (nauseaStrength < 0 || nauseaStrength > 10) {
                 throw new IllegalArgumentException("freefall.nausea_strength must be between 0 and 10");
@@ -82,6 +89,9 @@ public final class ElytraCombatConfig {
             }
             if (!Double.isFinite(spinIntensity) || spinIntensity < 0.0 || spinIntensity > 3.0) {
                 throw new IllegalArgumentException("freefall.spin_intensity must be between 0.0 and 3.0");
+            }
+            if (!Double.isFinite(darknessThresholdGs) || darknessThresholdGs < 0.0 || darknessThresholdGs > 500.0) {
+                throw new IllegalArgumentException("freefall.darkness_threshold_gs must be between 0.0 and 500.0");
             }
         }
     }
@@ -117,6 +127,14 @@ public final class ElytraCombatConfig {
 
     public static final class DamageFilter {
         public String mode = "denylist";
+
+        /**
+         * Landing and crash trauma (fall damage) never disables elytras when true. This keeps
+         * the damage of a fall the wearer was already shot down in from disabling a backup
+         * elytra swapped in mid-fall.
+         */
+        @SerializedName("ignore_fall_damage")
+        public boolean ignoreFallDamage = true;
 
         @SerializedName("damage_types")
         public List<String> damageTypes = new ArrayList<>();

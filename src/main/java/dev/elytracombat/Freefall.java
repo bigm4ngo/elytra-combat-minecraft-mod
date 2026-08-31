@@ -75,6 +75,8 @@ public final class Freefall {
             player.forceSetRotation(player.getYRot() + yawOffset, false,
                     Mth.clamp(player.getXRot() + pitchOffset, -90.0F, 90.0F), false);
         }
+        // Darkness is deliberately not applied here: it is gated on the G load of the fall
+        // itself (refreshDarkness), so slow falls stay clear while fast ones black out.
         state.turnRates = SpinModel.sample(state.impactSpeed, config.spinIntensity, player.getRandom()::nextDouble);
     }
 
@@ -141,7 +143,13 @@ public final class Freefall {
     }
 
     private static void refreshDarkness(ServerPlayer player) {
-        if (!ConfigManager.get().freefall.darkness) {
+        ElytraCombatConfig.Freefall config = ConfigManager.get().freefall;
+        if (!config.darkness) {
+            return;
+        }
+        double downwardSpeed = Math.max(0.0, -player.getDeltaMovement().y);
+        double gs = GForceMath.gsFor(downwardSpeed, ConfigManager.get().gForce.speedToGs);
+        if (gs < config.darknessThresholdGs) {
             return;
         }
         MobEffectInstance active = player.getEffect(MobEffects.DARKNESS);

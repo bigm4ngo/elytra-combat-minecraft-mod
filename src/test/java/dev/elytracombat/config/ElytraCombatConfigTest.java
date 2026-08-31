@@ -18,10 +18,12 @@ class ElytraCombatConfigTest {
         assertEquals(600, config.disableDurationTicks());
         assertFalse(config.damageFilter.isAllowlist());
         assertTrue(config.damageFilter.damageTypes.isEmpty());
+        assertTrue(config.damageFilter.ignoreFallDamage);
         assertTrue(config.absorptionBypassesDisable);
         assertEquals(4, config.freefall.nauseaStrength);
         assertEquals(12, config.freefall.nauseaDurationSeconds);
         assertTrue(config.freefall.darkness);
+        assertEquals(20.0, config.freefall.darknessThresholdGs);
         assertTrue(config.freefall.shockSound);
         assertTrue(config.freefall.viewSnap);
         assertEquals(1.0, config.freefall.spinIntensity);
@@ -94,6 +96,13 @@ class ElytraCombatConfigTest {
         assertThrows(IllegalArgumentException.class, config::validate);
 
         config.freefall.spinIntensity = 0.0;
+        config.freefall.darknessThresholdGs = -1.0;
+        assertThrows(IllegalArgumentException.class, config::validate);
+
+        config.freefall.darknessThresholdGs = 501.0;
+        assertThrows(IllegalArgumentException.class, config::validate);
+
+        config.freefall.darknessThresholdGs = 20.0;
         config.validate();
     }
 

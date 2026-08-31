@@ -26,6 +26,13 @@ class SpinModelTest {
     }
 
     @Test
+    void terminalVelocitySpinIsViolent() {
+        // A full speed fall (~3.92 blocks/tick) allows nearly the full 240 deg/s cap.
+        double cap = SpinModel.turnRateCap(3.92, 1.0);
+        assertTrue(cap > 10.0, "spin at terminal velocity must be obviously strong");
+    }
+
+    @Test
     void zeroIntensityDisablesSpin() {
         SpinModel.TurnRates rates = SpinModel.sample(4.0, 0.0, FIXED);
         assertEquals(0.0, rates.yawRate());
