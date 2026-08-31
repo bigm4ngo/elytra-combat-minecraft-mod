@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "dev.elytracombat.mixin",
+  "compatibilityLevel": "JAVA_22",
+  "mixins": [
+    "LivingEntityFlightMixin",
+    "ServerPlayerDamageMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

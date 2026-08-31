@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+
+# IDEs
+out/
+*.iml
+.idea/
+.vscode/
+.classpath
+.project
+.settings/
+
+# Runtime / test server
+run/
+
+# Local tooling and scratch space
+.tmp-*/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Crash and heap dumps
+*.hprof

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "elytra_combat",
+  "version": "${version}",
+  "name": "Elytra Combat",
+  "description": "Disables the wearer's elytra on configured damage, then punishes the free fall with shock effects, a decaying tumble, and toggleable G-force damage.",
+  "authors": ["Elytra Combat contributors"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["dev.elytracombat.ElytraCombat"],
+    "modmenu": ["dev.elytracombat.client.ElytraCombatModMenu"]
+  },
+  "mixins": ["elytra_combat.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "=26.1.1",
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": ">=18.0.0-beta.1"
+  }
+}
