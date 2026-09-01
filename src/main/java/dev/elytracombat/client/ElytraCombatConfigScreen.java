@@ -131,8 +131,7 @@ public final class ElytraCombatConfigScreen extends Screen {
         private EditBox nauseaStrength;
         private EditBox nauseaDuration;
         private EditBox spinIntensity;
-        private EditBox darknessThreshold;
-        private EditBox settleSeconds;
+        private EditBox effectThreshold;
         private EditBox threshold;
         private EditBox damagePerGs;
         private EditBox deltaToGs;
@@ -175,15 +174,7 @@ public final class ElytraCombatConfigScreen extends Screen {
                     .create(left, 135, 310, 20, Component.literal("G-force damage"), (button, value) ->
                             config.gForce.enabled = value));
 
-            addRenderableOnly(new StringWidget(left, 162, 100, 10, Component.literal("Darkness min Gs"), font));
-            darknessThreshold = new EditBox(font, left + 100, 157, 60, 20, Component.literal("Darkness min Gs"));
-            darknessThreshold.setValue(Double.toString(config.freefall.darknessThresholdGs));
-            addRenderableWidget(darknessThreshold);
-
-            addRenderableOnly(new StringWidget(left + 165, 162, 75, 10, Component.literal("Settle seconds"), font));
-            settleSeconds = new EditBox(font, left + 240, 157, 70, 20, Component.literal("Settle seconds"));
-            settleSeconds.setValue(Integer.toString(config.freefall.settleSeconds));
-            addRenderableWidget(settleSeconds);
+            effectThreshold = numberField(left, 157, "Effect min Gs (0-500)", Double.toString(config.gForce.effectThresholdGs));
 
             addRenderableOnly(new StringWidget(left, 184, 55, 10, Component.literal("Threshold"), font));
             threshold = new EditBox(font, left + 55, 179, 45, 20, Component.literal("Threshold"));
@@ -221,8 +212,7 @@ public final class ElytraCombatConfigScreen extends Screen {
                 config.freefall.nauseaStrength = Integer.parseInt(nauseaStrength.getValue().trim());
                 config.freefall.nauseaDurationSeconds = Integer.parseInt(nauseaDuration.getValue().trim());
                 config.freefall.spinIntensity = Double.parseDouble(spinIntensity.getValue().trim());
-                config.freefall.darknessThresholdGs = Double.parseDouble(darknessThreshold.getValue().trim());
-                config.freefall.settleSeconds = Integer.parseInt(settleSeconds.getValue().trim());
+                config.gForce.effectThresholdGs = Double.parseDouble(effectThreshold.getValue().trim());
                 config.gForce.thresholdGs = Double.parseDouble(threshold.getValue().trim());
                 config.gForce.damagePerGsPerSecond = Double.parseDouble(damagePerGs.getValue().trim());
                 config.gForce.deltaToGs = Double.parseDouble(deltaToGs.getValue().trim());

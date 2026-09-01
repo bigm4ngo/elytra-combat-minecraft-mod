@@ -56,9 +56,15 @@ public final class ElytraCombatConfig {
         @SerializedName("nausea_strength")
         public int nauseaStrength = 4;
 
-        /** Length of one nausea application. Must outlast the effect's 60 tick blend-out window. */
+        /**
+         * Length of one nausea application. Vanilla blends nausea in over 150 ticks and
+         * will not let an instance shorter than its 60 tick blend-out advance hold any
+         * distortion at all, so the monitor floors applications at 90 ticks (4.5 s); with
+         * the 3 s default the warp holds at ~60% strength while the load persists and is
+         * fully gone within a couple of seconds of the load clearing.
+         */
         @SerializedName("nausea_duration_seconds")
-        public int nauseaDurationSeconds = 12;
+        public int nauseaDurationSeconds = 3;
 
         @SerializedName("darkness")
         public boolean darkness = true;
@@ -73,38 +79,15 @@ public final class ElytraCombatConfig {
         @SerializedName("spin_intensity")
         public double spinIntensity = 1.0;
 
-        /**
-         * Minimum smoothed G load (see g_force.delta_to_gs) the current fall must carry
-         * before darkness pulses apply. The load spikes with the hit that starts the fall
-         * and fades out as terminal velocity cancels gravity, so 0 keeps darkness up for
-         * the whole session and larger values shorten it.
-         */
-        @SerializedName("darkness_threshold_gs")
-        public double darknessThresholdGs = 1.0;
-
-        /**
-         * After the fall ends (landing, water, climbing, or swapping in a working elytra)
-         * effects wind down over this many seconds: nausea is replaced by an instance that
-         * blends out over the window and the landing's G spike still counts.
-         */
-        @SerializedName("settle_seconds")
-        public int settleSeconds = 2;
-
         public void validate() {
             if (nauseaStrength < 0 || nauseaStrength > 10) {
                 throw new IllegalArgumentException("freefall.nausea_strength must be between 0 and 10");
             }
-            if (nauseaDurationSeconds < 4 || nauseaDurationSeconds > 120) {
-                throw new IllegalArgumentException("freefall.nausea_duration_seconds must be between 4 and 120");
+            if (nauseaDurationSeconds < 1 || nauseaDurationSeconds > 120) {
+                throw new IllegalArgumentException("freefall.nausea_duration_seconds must be between 1 and 120");
             }
             if (!Double.isFinite(spinIntensity) || spinIntensity < 0.0 || spinIntensity > 3.0) {
                 throw new IllegalArgumentException("freefall.spin_intensity must be between 0.0 and 3.0");
-            }
-            if (!Double.isFinite(darknessThresholdGs) || darknessThresholdGs < 0.0 || darknessThresholdGs > 500.0) {
-                throw new IllegalArgumentException("freefall.darkness_threshold_gs must be between 0.0 and 500.0");
-            }
-            if (settleSeconds < 1 || settleSeconds > 10) {
-                throw new IllegalArgumentException("freefall.settle_seconds must be between 1 and 10");
             }
         }
     }
@@ -114,30 +97,48 @@ public final class ElytraCombatConfig {
         public boolean enabled = true;
 
         /**
-         * Gs per block/tick of sudden velocity change. 40 is close to the real-world
-         * conversion and makes the first ticks of a free fall (vanilla gravity, 0.0784
-         * blocks/tick per tick) read about 3.1 Gs, fading to 0 at terminal velocity.
+         * Gs per block/tick of sudden velocity change. 100 is the game-scale conversion:
+         * one block/tick of sudden change reads as 100 Gs, so vanilla gravity during a
+         * free fall (0.0784 blocks/tick per tick) reads about 7.8 Gs, an arrow's knockback
+         * lands near 18 Gs, hard landings and re-entries go far higher, and terminal
+         * velocity still cancels the sustained load out toward 0.
          */
         @SerializedName("delta_to_gs")
-        public double deltaToGs = 40.0;
+        public double deltaToGs = 100.0;
 
-        /** Sudden changes below this load never hurt. Sustained free fall (~3 Gs) never does. */
+        /**
+         * Sudden changes below this load never hurt, and any event that pushes the smoothed
+         * load past it deals trauma through the {@code elytra_combat:g_force} damage type -
+         * which is a regular hurt, so it can also freshly disable a working elytra.
+         * Sustained free fall (~7.8 Gs) never reaches this.
+         */
         @SerializedName("threshold_gs")
-        public double thresholdGs = 15.0;
+        public double thresholdGs = 25.0;
 
         /** Damage per second for each G above the threshold, before armor. */
         @SerializedName("damage_per_gs_per_second")
         public double damagePerGsPerSecond = 0.4;
 
+        /**
+         * Minimum smoothed G load before the G effects apply: darkness pulses and nausea
+         * start the moment the load crosses this and stop shortly after it drops again.
+         * 0 keeps them up whenever the player is gliding or falling fast at all.
+         */
+        @SerializedName("effect_threshold_gs")
+        public double effectThresholdGs = 5.0;
+
         public void validate() {
-            if (!Double.isFinite(deltaToGs) || deltaToGs < 1.0 || deltaToGs > 200.0) {
-                throw new IllegalArgumentException("g_force.delta_to_gs must be between 1.0 and 200.0");
+            if (!Double.isFinite(deltaToGs) || deltaToGs < 1.0 || deltaToGs > 500.0) {
+                throw new IllegalArgumentException("g_force.delta_to_gs must be between 1.0 and 500.0");
             }
             if (!Double.isFinite(thresholdGs) || thresholdGs < 1.0 || thresholdGs > 200.0) {
                 throw new IllegalArgumentException("g_force.threshold_gs must be between 1.0 and 200.0");
             }
             if (!Double.isFinite(damagePerGsPerSecond) || damagePerGsPerSecond < 0.0 || damagePerGsPerSecond > 10.0) {
                 throw new IllegalArgumentException("g_force.damage_per_gs_per_second must be between 0.0 and 10.0");
+            }
+            if (!Double.isFinite(effectThresholdGs) || effectThresholdGs < 0.0 || effectThresholdGs > 500.0) {
+                throw new IllegalArgumentException("g_force.effect_threshold_gs must be between 0.0 and 500.0");
             }
         }
     }

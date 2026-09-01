@@ -39,7 +39,9 @@ public final class PhysicalDamage {
             "minecraft:stalagmite",
             "minecraft:lightning_bolt",
             "minecraft:thorns",
-            "minecraft:sonic_boom"
+            "minecraft:sonic_boom",
+            // G-force trauma: sudden deceleration stresses the frame like any crash.
+            "elytra_combat:g_force"
     );
 
     private PhysicalDamage() {

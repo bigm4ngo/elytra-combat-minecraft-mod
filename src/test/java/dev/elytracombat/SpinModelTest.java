@@ -51,12 +51,47 @@ class SpinModelTest {
     }
 
     @Test
+    void sampledTumbleLastsTheFullWindow() {
+        // The decay is derived from the sampled magnitudes, so every tumble - however weak -
+        // fades across the whole SPIN_DURATION_TICKS window instead of dying off early.
+        SpinModel.TurnRates rates = SpinModel.sample(3.92, 1.0, FIXED);
+        assertTrue(rates.decayPerTick() > 0.0);
+        for (int i = 0; i < SpinModel.SPIN_DURATION_TICKS / 2; i++) {
+            rates = rates.decayed();
+            assertFalse(rates.expired(), "still fading at half of the window, at tick " + i);
+        }
+        for (int i = 0; i < SpinModel.SPIN_DURATION_TICKS; i++) {
+            rates = rates.decayed();
+        }
+        assertTrue(rates.expired(), "the tumble lands on zero at the end of the window");
+    }
+
+    @Test
+    void decayIsLinearAndGradual() {
+        // Halfway through the window half the yaw remains: no early collapse and no abrupt
+        // cutoff, the fade is even from start to finish. Pitch shares the same decay rate,
+        // so it reaches zero at a quarter of the window and stays there while yaw fades on.
+        SpinModel.TurnRates rates = new SpinModel.TurnRates(4.0, 1.0, 4.0 / SpinModel.SPIN_DURATION_TICKS);
+        for (int i = 0; i < SpinModel.SPIN_DURATION_TICKS / 2; i++) {
+            rates = rates.decayed();
+        }
+        assertEquals(2.0, rates.yawRate(), 1e-9);
+        assertEquals(0.0, rates.pitchRate(), 1e-9);
+        assertFalse(rates.expired());
+    }
+
+    @Test
     void ratesDecayAndExpire() {
-        SpinModel.TurnRates rates = new SpinModel.TurnRates(4.0, 1.0);
+        SpinModel.TurnRates rates = new SpinModel.TurnRates(4.0, -1.0, 0.025);
         for (int i = 0; i < 400; i++) {
             rates = rates.decayed();
         }
-        assertTrue(rates.expired(), "rates decay below the cutoff eventually");
-        assertFalse(new SpinModel.TurnRates(4.0, 0.0).expired());
+        assertTrue(rates.expired(), "negative rates decay up toward zero and expire too");
+        // No decay means no motion toward zero, which only happens for a sampled zero tumble.
+        SpinModel.TurnRates frozen = new SpinModel.TurnRates(4.0, 0.0, 0.0);
+        for (int i = 0; i < 400; i++) {
+            frozen = frozen.decayed();
+        }
+        assertFalse(frozen.expired());
     }
 }

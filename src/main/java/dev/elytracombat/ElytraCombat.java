@@ -21,6 +21,9 @@ public final class ElytraCombat implements ModInitializer {
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (var player : server.getPlayerList().getPlayers()) {
+                // The G monitor first: its damage can freshly disable an elytra, and the
+                // shock session that starts there is ticked right after in the same pass.
+                GForce.tick(player);
                 Freefall.tick(player);
             }
         });

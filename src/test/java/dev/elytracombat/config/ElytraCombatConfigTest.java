@@ -21,17 +21,16 @@ class ElytraCombatConfigTest {
         assertTrue(config.damageFilter.ignoreFallDamage);
         assertTrue(config.absorptionBypassesDisable);
         assertEquals(4, config.freefall.nauseaStrength);
-        assertEquals(12, config.freefall.nauseaDurationSeconds);
+        assertEquals(3, config.freefall.nauseaDurationSeconds);
         assertTrue(config.freefall.darkness);
-        assertEquals(1.0, config.freefall.darknessThresholdGs);
-        assertEquals(2, config.freefall.settleSeconds);
         assertTrue(config.freefall.shockSound);
         assertTrue(config.freefall.viewSnap);
         assertEquals(1.0, config.freefall.spinIntensity);
         assertTrue(config.gForce.enabled);
-        assertEquals(40.0, config.gForce.deltaToGs);
-        assertEquals(15.0, config.gForce.thresholdGs);
+        assertEquals(100.0, config.gForce.deltaToGs);
+        assertEquals(25.0, config.gForce.thresholdGs);
         assertEquals(0.4, config.gForce.damagePerGsPerSecond);
+        assertEquals(5.0, config.gForce.effectThresholdGs);
         assertTrue(config.durabilityDamage.enabled);
         assertEquals("percent", config.durabilityDamage.mode);
         assertEquals(10.0, config.durabilityDamage.percent);
@@ -86,31 +85,20 @@ class ElytraCombatConfigTest {
         assertThrows(IllegalArgumentException.class, config::validate);
 
         config.freefall.nauseaStrength = 4;
-        config.freefall.nauseaDurationSeconds = 3;
+        config.freefall.nauseaDurationSeconds = 0;
         assertThrows(IllegalArgumentException.class, config::validate);
 
-        config.freefall.nauseaDurationSeconds = 12;
+        config.freefall.nauseaDurationSeconds = 1;
+        config.validate();
+        config.freefall.nauseaDurationSeconds = 3;
+
         config.freefall.spinIntensity = -0.1;
         assertThrows(IllegalArgumentException.class, config::validate);
 
         config.freefall.spinIntensity = 3.1;
         assertThrows(IllegalArgumentException.class, config::validate);
 
-        config.freefall.spinIntensity = 0.0;
-        config.freefall.darknessThresholdGs = -1.0;
-        assertThrows(IllegalArgumentException.class, config::validate);
-
-        config.freefall.darknessThresholdGs = 501.0;
-        assertThrows(IllegalArgumentException.class, config::validate);
-
-        config.freefall.darknessThresholdGs = 20.0;
-        config.freefall.settleSeconds = 0;
-        assertThrows(IllegalArgumentException.class, config::validate);
-
-        config.freefall.settleSeconds = 11;
-        assertThrows(IllegalArgumentException.class, config::validate);
-
-        config.freefall.settleSeconds = 2;
+        config.freefall.spinIntensity = 1.0;
         config.validate();
     }
 
@@ -121,15 +109,27 @@ class ElytraCombatConfigTest {
         config.gForce.deltaToGs = 0.5;
         assertThrows(IllegalArgumentException.class, config::validate);
 
-        config.gForce.deltaToGs = 40.0;
+        config.gForce.deltaToGs = 501.0;
+        assertThrows(IllegalArgumentException.class, config::validate);
+
+        config.gForce.deltaToGs = 100.0;
         config.gForce.thresholdGs = 0.0;
         assertThrows(IllegalArgumentException.class, config::validate);
 
-        config.gForce.thresholdGs = 15.0;
+        config.gForce.thresholdGs = 25.0;
         config.gForce.damagePerGsPerSecond = -1.0;
         assertThrows(IllegalArgumentException.class, config::validate);
 
         config.gForce.damagePerGsPerSecond = 0.4;
+        config.gForce.effectThresholdGs = -0.1;
+        assertThrows(IllegalArgumentException.class, config::validate);
+
+        config.gForce.effectThresholdGs = 501.0;
+        assertThrows(IllegalArgumentException.class, config::validate);
+
+        config.gForce.effectThresholdGs = 0.0;
+        config.validate();
+        config.gForce.effectThresholdGs = 5.0;
         config.validate();
     }
 

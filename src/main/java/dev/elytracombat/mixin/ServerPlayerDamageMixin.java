@@ -3,6 +3,7 @@ package dev.elytracombat.mixin;
 import dev.elytracombat.DamageFilter;
 import dev.elytracombat.ElytraCooldowns;
 import dev.elytracombat.Freefall;
+import dev.elytracombat.GForce;
 import dev.elytracombat.PhysicalDamage;
 import dev.elytracombat.config.ConfigManager;
 import net.minecraft.server.level.ServerLevel;
@@ -58,8 +59,9 @@ public abstract class ServerPlayerDamageMixin {
         if (self.isAlive() && acceptedDamage && !fallDamageIgnored
                 && !elytraCombat$wornElytra.isEmpty() && DamageFilter.shouldTrigger(source)
                 && !ElytraCooldowns.isDisabled(level, elytraCombat$wornElytra)) {
-            // Fresh disable only: hits never extend an ongoing cooldown, and damage the mod
-            // itself deals (G-force) lands on an already disabled elytra, so it is ignored here.
+            // Fresh disable only: hits never extend an ongoing cooldown. This includes the
+            // mod's own G-force damage (elytra_combat:g_force): trauma past g_force.threshold_gs
+            // can disable a working elytra on its own, mid-maneuver or on a hard landing.
             if (PhysicalDamage.isExternalPhysical(source)) {
                 ElytraCooldowns.damageElytra(self, elytraCombat$wornElytra, healthLost + absorptionLost);
             }
@@ -79,5 +81,6 @@ public abstract class ServerPlayerDamageMixin {
         ServerPlayer self = (ServerPlayer) (Object) this;
         ElytraCooldowns.clearAll(self);
         Freefall.clear(self);
+        GForce.clear(self);
     }
 }
