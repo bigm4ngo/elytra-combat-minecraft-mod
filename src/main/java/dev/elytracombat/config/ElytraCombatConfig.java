@@ -74,11 +74,21 @@ public final class ElytraCombatConfig {
         public double spinIntensity = 1.0;
 
         /**
-         * Minimum G load (see g_force.speed_to_gs) the current fall must reach before darkness
-         * pulses apply. 0 applies darkness on every mid-flight disable.
+         * Minimum smoothed G load (see g_force.delta_to_gs) the current fall must carry
+         * before darkness pulses apply. The load spikes with the hit that starts the fall
+         * and fades out as terminal velocity cancels gravity, so 0 keeps darkness up for
+         * the whole session and larger values shorten it.
          */
         @SerializedName("darkness_threshold_gs")
-        public double darknessThresholdGs = 20.0;
+        public double darknessThresholdGs = 1.0;
+
+        /**
+         * After the fall ends (landing, water, climbing, or swapping in a working elytra)
+         * effects wind down over this many seconds: nausea is replaced by an instance that
+         * blends out over the window and the landing's G spike still counts.
+         */
+        @SerializedName("settle_seconds")
+        public int settleSeconds = 2;
 
         public void validate() {
             if (nauseaStrength < 0 || nauseaStrength > 10) {
@@ -93,6 +103,9 @@ public final class ElytraCombatConfig {
             if (!Double.isFinite(darknessThresholdGs) || darknessThresholdGs < 0.0 || darknessThresholdGs > 500.0) {
                 throw new IllegalArgumentException("freefall.darkness_threshold_gs must be between 0.0 and 500.0");
             }
+            if (settleSeconds < 1 || settleSeconds > 10) {
+                throw new IllegalArgumentException("freefall.settle_seconds must be between 1 and 10");
+            }
         }
     }
 
@@ -100,21 +113,25 @@ public final class ElytraCombatConfig {
         @SerializedName("enabled")
         public boolean enabled = true;
 
-        /** Gs per block/tick of downward speed. 12 makes vanilla terminal velocity (~3.92) about 47 Gs. */
-        @SerializedName("speed_to_gs")
-        public double speedToGs = 12.0;
+        /**
+         * Gs per block/tick of sudden velocity change. 40 is close to the real-world
+         * conversion and makes the first ticks of a free fall (vanilla gravity, 0.0784
+         * blocks/tick per tick) read about 3.1 Gs, fading to 0 at terminal velocity.
+         */
+        @SerializedName("delta_to_gs")
+        public double deltaToGs = 40.0;
 
-        /** Falls below this load never hurt. 25 Gs is reached after roughly 13 blocks of free fall. */
+        /** Sudden changes below this load never hurt. Sustained free fall (~3 Gs) never does. */
         @SerializedName("threshold_gs")
-        public double thresholdGs = 25.0;
+        public double thresholdGs = 15.0;
 
         /** Damage per second for each G above the threshold, before armor. */
         @SerializedName("damage_per_gs_per_second")
         public double damagePerGsPerSecond = 0.4;
 
         public void validate() {
-            if (!Double.isFinite(speedToGs) || speedToGs < 1.0 || speedToGs > 50.0) {
-                throw new IllegalArgumentException("g_force.speed_to_gs must be between 1.0 and 50.0");
+            if (!Double.isFinite(deltaToGs) || deltaToGs < 1.0 || deltaToGs > 200.0) {
+                throw new IllegalArgumentException("g_force.delta_to_gs must be between 1.0 and 200.0");
             }
             if (!Double.isFinite(thresholdGs) || thresholdGs < 1.0 || thresholdGs > 200.0) {
                 throw new IllegalArgumentException("g_force.threshold_gs must be between 1.0 and 200.0");

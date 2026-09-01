@@ -11,6 +11,7 @@ import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -24,6 +25,7 @@ public abstract class ServerPlayerDamageMixin {
     @Unique private float elytraCombat$healthBefore;
     @Unique private float elytraCombat$absorptionBefore;
     @Unique private boolean elytraCombat$wasFallFlying;
+    @Unique private Vec3 elytraCombat$velocityBefore;
 
     @Inject(method = "hurtServer", at = @At("HEAD"))
     private void elytraCombat$captureDamage(ServerLevel level, DamageSource source, float amount,
@@ -34,6 +36,8 @@ public abstract class ServerPlayerDamageMixin {
         elytraCombat$healthBefore = self.getHealth();
         elytraCombat$absorptionBefore = self.getAbsorptionAmount();
         elytraCombat$wasFallFlying = self.isFallFlying();
+        // Captured before the hit: the knockback is the first G spike of the fall.
+        elytraCombat$velocityBefore = self.getDeltaMovement();
     }
 
     @Inject(method = "hurtServer", at = @At("RETURN"))
@@ -60,13 +64,14 @@ public abstract class ServerPlayerDamageMixin {
                 ElytraCooldowns.damageElytra(self, elytraCombat$wornElytra, healthLost + absorptionLost);
             }
             if (ElytraCooldowns.disable(self, elytraCombat$wornElytra) && elytraCombat$wasFallFlying) {
-                Freefall.beginMidFlight(self);
+                Freefall.beginMidFlight(self, elytraCombat$velocityBefore);
                 self.stopFallFlying();
             }
         }
 
         elytraCombat$wornElytra = ItemStack.EMPTY;
         elytraCombat$wasFallFlying = false;
+        elytraCombat$velocityBefore = Vec3.ZERO;
     }
 
     @Inject(method = "die", at = @At("HEAD"))

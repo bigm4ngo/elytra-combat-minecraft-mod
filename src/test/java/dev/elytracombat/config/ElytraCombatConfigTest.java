@@ -23,13 +23,14 @@ class ElytraCombatConfigTest {
         assertEquals(4, config.freefall.nauseaStrength);
         assertEquals(12, config.freefall.nauseaDurationSeconds);
         assertTrue(config.freefall.darkness);
-        assertEquals(20.0, config.freefall.darknessThresholdGs);
+        assertEquals(1.0, config.freefall.darknessThresholdGs);
+        assertEquals(2, config.freefall.settleSeconds);
         assertTrue(config.freefall.shockSound);
         assertTrue(config.freefall.viewSnap);
         assertEquals(1.0, config.freefall.spinIntensity);
         assertTrue(config.gForce.enabled);
-        assertEquals(12.0, config.gForce.speedToGs);
-        assertEquals(25.0, config.gForce.thresholdGs);
+        assertEquals(40.0, config.gForce.deltaToGs);
+        assertEquals(15.0, config.gForce.thresholdGs);
         assertEquals(0.4, config.gForce.damagePerGsPerSecond);
         assertTrue(config.durabilityDamage.enabled);
         assertEquals("percent", config.durabilityDamage.mode);
@@ -103,6 +104,13 @@ class ElytraCombatConfigTest {
         assertThrows(IllegalArgumentException.class, config::validate);
 
         config.freefall.darknessThresholdGs = 20.0;
+        config.freefall.settleSeconds = 0;
+        assertThrows(IllegalArgumentException.class, config::validate);
+
+        config.freefall.settleSeconds = 11;
+        assertThrows(IllegalArgumentException.class, config::validate);
+
+        config.freefall.settleSeconds = 2;
         config.validate();
     }
 
@@ -110,14 +118,14 @@ class ElytraCombatConfigTest {
     void validatesGForceRanges() {
         ElytraCombatConfig config = new ElytraCombatConfig();
 
-        config.gForce.speedToGs = 0.5;
+        config.gForce.deltaToGs = 0.5;
         assertThrows(IllegalArgumentException.class, config::validate);
 
-        config.gForce.speedToGs = 12.0;
+        config.gForce.deltaToGs = 40.0;
         config.gForce.thresholdGs = 0.0;
         assertThrows(IllegalArgumentException.class, config::validate);
 
-        config.gForce.thresholdGs = 25.0;
+        config.gForce.thresholdGs = 15.0;
         config.gForce.damagePerGsPerSecond = -1.0;
         assertThrows(IllegalArgumentException.class, config::validate);
 

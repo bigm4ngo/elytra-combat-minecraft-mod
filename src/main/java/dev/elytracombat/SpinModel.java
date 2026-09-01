@@ -7,22 +7,22 @@ import java.util.function.DoubleSupplier;
  *
  * <p>The turn rates are sampled once when flight is disabled and then decay every tick.
  * Their magnitude is bounded by the speed the player had at that moment, so a slow player
- * tumbles gently while a fast one tumbles violently, and no tumble can exceed the hard
- * cap below (12 deg/tick = 240 deg/s).
+ * tumbles gently while a fast one tumbles faster, and no tumble can exceed the hard
+ * cap below (6 deg/tick = 120 deg/s).
  */
 public final class SpinModel {
     /** Hard ceiling for the yaw rate regardless of impact speed or intensity. */
-    public static final double MAX_YAW_RATE_DEG_PER_TICK = 12.0;
+    public static final double MAX_YAW_RATE_DEG_PER_TICK = 6.0;
     /** Hard ceiling for the pitch rate; pitch changes are kept subtler than yaw. */
-    public static final double MAX_PITCH_RATE_DEG_PER_TICK = 2.5;
-    /** Fraction of the rate kept each tick (~40% left after 3 seconds). */
-    public static final double DECAY_FACTOR_PER_TICK = 0.985;
+    public static final double MAX_PITCH_RATE_DEG_PER_TICK = 1.5;
+    /** Fraction of the rate kept each tick (~16% left after 3 seconds). */
+    public static final double DECAY_FACTOR_PER_TICK = 0.97;
     /** Rates below this magnitude are treated as finished. */
     public static final double MIN_RATE_DEG_PER_TICK = 0.05;
     /** Impact speed used for rate bounds is clamped to this (vanilla terminal speed ~3.92). */
     public static final double MAX_IMPACT_SPEED = 5.0;
     /** Yaw rate budget in deg/tick per block/tick of impact speed. */
-    private static final double SPEED_TO_RATE = 3.0;
+    private static final double SPEED_TO_RATE = 1.5;
     /** Portion of the yaw budget the pitch rate may use. */
     private static final double PITCH_SHARE = 0.25;
 

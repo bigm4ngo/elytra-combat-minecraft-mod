@@ -132,9 +132,10 @@ public final class ElytraCombatConfigScreen extends Screen {
         private EditBox nauseaDuration;
         private EditBox spinIntensity;
         private EditBox darknessThreshold;
+        private EditBox settleSeconds;
         private EditBox threshold;
         private EditBox damagePerGs;
-        private EditBox speedToGs;
+        private EditBox deltaToGs;
         private StringWidget error;
 
         private FreefallScreen(Screen parent, ElytraCombatConfig config) {
@@ -173,7 +174,16 @@ public final class ElytraCombatConfigScreen extends Screen {
             addRenderableWidget(CycleButton.onOffBuilder(config.gForce.enabled)
                     .create(left, 135, 310, 20, Component.literal("G-force damage"), (button, value) ->
                             config.gForce.enabled = value));
-            darknessThreshold = numberField(left, 157, "Darkness min Gs (0-500)", Double.toString(config.freefall.darknessThresholdGs));
+
+            addRenderableOnly(new StringWidget(left, 162, 100, 10, Component.literal("Darkness min Gs"), font));
+            darknessThreshold = new EditBox(font, left + 100, 157, 60, 20, Component.literal("Darkness min Gs"));
+            darknessThreshold.setValue(Double.toString(config.freefall.darknessThresholdGs));
+            addRenderableWidget(darknessThreshold);
+
+            addRenderableOnly(new StringWidget(left + 165, 162, 75, 10, Component.literal("Settle seconds"), font));
+            settleSeconds = new EditBox(font, left + 240, 157, 70, 20, Component.literal("Settle seconds"));
+            settleSeconds.setValue(Integer.toString(config.freefall.settleSeconds));
+            addRenderableWidget(settleSeconds);
 
             addRenderableOnly(new StringWidget(left, 184, 55, 10, Component.literal("Threshold"), font));
             threshold = new EditBox(font, left + 55, 179, 45, 20, Component.literal("Threshold"));
@@ -185,10 +195,10 @@ public final class ElytraCombatConfigScreen extends Screen {
             damagePerGs.setValue(Double.toString(config.gForce.damagePerGsPerSecond));
             addRenderableWidget(damagePerGs);
 
-            addRenderableOnly(new StringWidget(left + 200, 184, 45, 10, Component.literal("Speed/Gs"), font));
-            speedToGs = new EditBox(font, left + 245, 179, 65, 20, Component.literal("Speed to Gs"));
-            speedToGs.setValue(Double.toString(config.gForce.speedToGs));
-            addRenderableWidget(speedToGs);
+            addRenderableOnly(new StringWidget(left + 200, 184, 45, 10, Component.literal("Delta/Gs"), font));
+            deltaToGs = new EditBox(font, left + 245, 179, 65, 20, Component.literal("Delta to Gs"));
+            deltaToGs.setValue(Double.toString(config.gForce.deltaToGs));
+            addRenderableWidget(deltaToGs);
 
             error = new StringWidget(left, 205, 310, 10, Component.empty(), font);
             addRenderableOnly(error);
@@ -212,9 +222,10 @@ public final class ElytraCombatConfigScreen extends Screen {
                 config.freefall.nauseaDurationSeconds = Integer.parseInt(nauseaDuration.getValue().trim());
                 config.freefall.spinIntensity = Double.parseDouble(spinIntensity.getValue().trim());
                 config.freefall.darknessThresholdGs = Double.parseDouble(darknessThreshold.getValue().trim());
+                config.freefall.settleSeconds = Integer.parseInt(settleSeconds.getValue().trim());
                 config.gForce.thresholdGs = Double.parseDouble(threshold.getValue().trim());
                 config.gForce.damagePerGsPerSecond = Double.parseDouble(damagePerGs.getValue().trim());
-                config.gForce.speedToGs = Double.parseDouble(speedToGs.getValue().trim());
+                config.gForce.deltaToGs = Double.parseDouble(deltaToGs.getValue().trim());
                 config.validate();
                 minecraft.setScreen(parent);
             } catch (NumberFormatException exception) {
