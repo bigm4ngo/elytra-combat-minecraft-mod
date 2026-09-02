@@ -29,7 +29,7 @@ class ElytraCombatConfigTest {
         assertTrue(config.gForce.enabled);
         assertEquals(100.0, config.gForce.deltaToGs);
         assertEquals(25.0, config.gForce.thresholdGs);
-        assertEquals(0.4, config.gForce.damagePerGsPerSecond);
+        assertEquals(5.0, config.gForce.damagePerGsPerSecond);
         assertEquals(5.0, config.gForce.effectThresholdGs);
         assertTrue(config.durabilityDamage.enabled);
         assertEquals("percent", config.durabilityDamage.mode);
@@ -120,7 +120,7 @@ class ElytraCombatConfigTest {
         config.gForce.damagePerGsPerSecond = -1.0;
         assertThrows(IllegalArgumentException.class, config::validate);
 
-        config.gForce.damagePerGsPerSecond = 0.4;
+        config.gForce.damagePerGsPerSecond = 5.0;
         config.gForce.effectThresholdGs = -0.1;
         assertThrows(IllegalArgumentException.class, config::validate);
 

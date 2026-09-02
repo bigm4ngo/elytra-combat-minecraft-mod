@@ -12,7 +12,7 @@ Clients do not need the mod when joining a dedicated server. Install it normally
 
 **G-force.** The mod watches every player every tick and turns sudden changes in velocity into a G load - game-scale numbers, not real-world ones. It applies to all elytra flight and falls: being shot down, hard landings, snapping a fresh elytra open mid-fall, and above all intense flight maneuvers. Crossing the effect threshold pulses darkness and nausea; crossing the damage threshold deals trauma through its own damage type, which can disable a working elytra all on its own - no hit required. See [How G-force works](#how-g-force-works).
 
-**Freefall shock.** When the disable happens mid-flight (by damage or by G-force alone), the victim gets an immediate shock: a jarring sound, a violent snap of the view, and the first wave of nausea and darkness. From there the G-force system keeps the effects alive for as long as the load stays high.
+**Freefall shock.** When the disable happens mid-flight (by damage or by G-force alone), the victim gets an immediate shock: a jarring sound, a violent snap of the view, and the first wave of nausea and darkness. From there the G-force system keeps the effects alive for as long as the player has not stabilised, and drops them once they do.
 
 **Decaying tumble.** The mid-flight disable also starts a random decaying camera spin - a random direction and pitch drift, chosen once and faded out over exactly eight seconds. The fade is linear and gradual: no early collapse, no abrupt cutoff, the spin eases to a full stop at the end of the window. Its magnitude is derived from the speed the player had at the moment of the disable, so a slow target tumbles gently while a fast one tumbles faster, and no tumble can exceed the hard cap of 6 deg/tick (120 deg/s). It uses the vanilla `/rotate` packet, so it works for clients without the mod.
 
@@ -33,25 +33,28 @@ With the default `delta_to_gs = 100`, one block/tick of sudden change reads as 1
 |---|---|---|
 | Steady glide | ~0.02 blocks/tick per tick | **~2 Gs - quiet** |
 | First ticks of free fall | 0.078 blocks/tick per tick | **~8 Gs, fading to 0 at terminal velocity** |
+| Ground takeoff (jump + glide start) | ~0.6 blocks/tick | **exempt - the takeoff grace ignores it** |
 | Arrow hit that starts the fall | ~0.5 blocks/tick | **~18 Gs smoothed spike** |
 | Violent elytra maneuver (full 90° snap) | ~1.0 blocks/tick | **~35 Gs smoothed spike - hurts and disables** |
 | Re-engaging a fresh elytra mid-fall | 1.5 - 2.5 blocks/tick | **~50 - 90 Gs smoothed spike** |
-| Landing out of terminal velocity | 3.92 blocks/tick | **~137 Gs smoothed spike (392 raw), ~2.2 hearts burst** |
+| Landing out of terminal velocity | 3.92 blocks/tick | **~137 Gs smoothed spike (392 raw), lethal burst** |
 
 The raw per-tick change is smoothed with an exponential average (35% of each new tick mixed in), so single-tick spikes read as short bursts instead of flickers and one weird packet cannot fake a blackout.
 
 **Who is measured.** Every gliding player, and every airborne player wearing an elytra whose fall has reached flight-like speed (about an 8 block drop). Walking, hopping, climbing, swimming, and short drops stay outside the model - a hop never reads as a blackout.
 
-**When effects apply.** The moment the smoothed load crosses `g_force.effect_threshold_gs` (default 5 Gs), darkness and nausea start and keep refreshing while the load stays high. A steady glide sits around 2 Gs and never triggers; a hard pull-up, a rocket-boosted climb gone wrong, or the acceleration of a fresh free fall does. Once the load drops - terminal velocity reached, flight stabilized - the effects finish on their own within seconds. `nausea_duration_seconds` (default 3) is the length of one application: vanilla ramps nausea in over 7.5 seconds and will not render shorter instances at all, so the monitor floors applications at 4.5 seconds, which holds the warp at ~60% strength while the load persists and still ends it within a couple of seconds of stabilizing.
+**When effects apply.** The moment the smoothed load crosses `g_force.effect_threshold_gs` (default 5 Gs), darkness and nausea start and keep refreshing while the player has not stabilised. A steady glide sits around 2 Gs and never triggers; a hard pull-up, a rocket-boosted climb gone wrong, or the acceleration of a fresh free fall does. When the player stabilises - the load drops below the threshold, or they land - the sustained nausea is cleared about half a second later, so a stabilizing pilot shakes it off almost immediately, while a victim still tumbling keeps it refreshed for the whole fall. `nausea_duration_seconds` (default 3) is the length of one nausea application; vanilla will not render instances shorter than its blend-out window, so applications are floored at 4.5 seconds, which keeps the warp visible at short settings.
 
-**When it hurts.** Above `g_force.threshold_gs` (default 25 Gs) the load deals damage through the `elytra_combat:g_force` damage type. Sustained free fall (~8 Gs) never reaches it - trauma is for sudden events only. And because that damage is a regular hurt, it runs through the same disable pipeline as any hit: a maneuver or landing violent enough to hurt also **disables the elytra**, even though nothing shot the player down. The G damage counts as physical trauma, so it can wear durability too.
+**The takeoff exception.** Starting a glide from the ground yanks the jump velocity onto the glide path within a few ticks, which would read as a 20 - 30 G spike that no pilot actually feels. A low-speed glide start therefore opens a short (0.75 s) grace window in which no G effects or damage apply. Re-entering flight at speed - the fresh-elytra swap mid-fall - is not a ground takeoff and still counts.
+
+**When it hurts.** Above `g_force.threshold_gs` (default 25 Gs) the load deals damage through the `elytra_combat:g_force` damage type. Sustained free fall (~8 Gs) never reaches it - trauma is for sudden events only. And because that damage is a regular hurt, it runs through the same disable pipeline as any hit: a maneuver or landing violent enough to hurt also **disables the elytra**, even though nothing shot the player down. The G damage counts as physical trauma, so it can wear durability too. At the default `damage_per_gs_per_second` of 5.0 a violent maneuver costs a couple of hearts, a 20-block landing about seven, and a terminal-velocity landing is simply death.
 
 **Filtering G damage.** G-force damage appears as `elytra_combat:g_force` in the damage filter. The default empty denylist triggers on it; add that id to `damage_types` if G-force should black out players but never disable their elytras.
 
 Practical tuning:
-- **Harsher impacts:** raise `damage_per_gs_per_second` (0.8 - 1.0 turns hard landings into serious trauma) or lower `threshold_gs`.
+- **Harsher impacts:** raise `damage_per_gs_per_second` further or lower `threshold_gs`; the default 5.0 already makes hard landings lethal.
 - **Touchier blackout:** lower `g_force.effect_threshold_gs`; 0 keeps darkness and nausea up whenever the player is gliding or falling fast at all, 500 effectively disables both.
-- **Softer:** raise `threshold_gs` or lower `damage_per_gs_per_second`; `enabled: false` turns the damage off entirely (darkness and nausea keep working - they read the same load).
+- **Softer:** drop `damage_per_gs_per_second` toward 0.5, raise `threshold_gs`; `enabled: false` turns the damage off entirely (darkness and nausea keep working - they read the same load).
 - **Do not touch** `delta_to_gs` unless you want to change the whole scale - it shifts every number above at once. 100 is the game-scale conversion; 40 was the old real-world one.
 
 ## Configuration
@@ -82,7 +85,7 @@ The first launch creates `config/elytra-combat.json`:
     "enabled": true,
     "delta_to_gs": 100.0,
     "threshold_gs": 25.0,
-    "damage_per_gs_per_second": 0.4,
+    "damage_per_gs_per_second": 5.0,
     "effect_threshold_gs": 5.0
   },
   "durability_damage": {
@@ -102,12 +105,14 @@ The first launch creates `config/elytra-combat.json`:
 - `absorption_bypasses_disable`: when true, a hit that damages only absorption hearts causes neither disable nor durability loss; a hit that reaches real health always triggers.
 - `freefall`:
   - `nausea_strength`: 0 (disabled) to 10; the applied amplifier is strength minus one.
-  - `nausea_duration_seconds` (1-120): length of one nausea application. Vanilla's blend mechanics are noted under [How G-force works](#how-g-force-works): applications are floored at 4.5 seconds so the distortion is visible at all, and the effect re-applies seamlessly while the load persists, so the setting mostly controls how strong the warp is and how fast it dies down once the player stabilizes.
+  - `nausea_duration_seconds` (1-120): length of one nausea application. The effect re-applies seamlessly while the player has not stabilised and is cleared about half a second after the load drops (landing, stabilized glide), so the setting is the length of each application, not a countdown to relief. Applications are floored at 4.5 seconds because vanilla cannot render shorter ones - see [How G-force works](#how-g-force-works).
   - `darkness`: toggles the pulsing blackout effect, which follows the G load while it is above `g_force.effect_threshold_gs`.
   - `shock_sound`, `view_snap`: toggles for the individual shock effects of a mid-flight disable.
   - `spin_intensity`: 0 disables the tumble; up to 3.0 scales the decaying spin within its speed-derived cap. At intensity 1.0 a player who was shot down at full elytra speed can spin at up to ~118 deg/s, fading linearly to a full stop over eight seconds.
 - `g_force`: set `enabled` to false to turn G-force damage off entirely, or tune the model - see [How G-force works](#how-g-force-works) for worked examples of `delta_to_gs`, `threshold_gs`, `damage_per_gs_per_second`, and `effect_threshold_gs`.
 - `durability_damage`: mode can be `percent`, `flat`, or `damage_scaled`. Percentage uses the elytra's maximum durability and rounds up; damage scaling uses final health plus absorption damage (0.1 to 20 durability per damage point). Poison, instant damage, status/magic damage, fire, drowning, starvation, freezing, falls, suffocation, and void damage never damage the elytra.
+
+Upgrading from 1.3.0: `damage_per_gs_per_second` default moved from 0.4 to 5.0 - G-force trauma is now genuinely dangerous by default, so revisit it if you had tuned it. Nausea now refreshes while the player has not stabilised and is cleared shortly after they do (instead of running out on its own), and ground takeoffs are exempt from the G model.
 
 Upgrading from 1.2.2: the G-force keys `darkness_threshold_gs` and `settle_seconds` under `freefall` are gone - the first became `g_force.effect_threshold_gs` and now also gates nausea, the second was dropped because the always-on monitor no longer needs a settle window. `delta_to_gs` moved from 40 (real-world scale) to 100 (game scale) and `threshold_gs` from 15 to 25; old values are ignored and the new defaults apply. `nausea_duration_seconds` moved from 12 to 3 and its minimum from 4 to 1. Every change is explained in [CHANGELOG.md](CHANGELOG.md).
 

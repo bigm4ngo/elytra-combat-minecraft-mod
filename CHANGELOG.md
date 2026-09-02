@@ -2,6 +2,23 @@
 
 All notable changes to Elytra Combat are documented here. Releases before 1.2.0 predate this document.
 
+## 1.3.1 - 2026-09-02
+
+Playtest follow-ups to the G-force rework.
+
+### Nausea lifecycle restored
+
+- `nausea_duration_seconds` is the length of one nausea application again. The effect is refreshed seamlessly while the player has still not stabilised (the load stays above the effect threshold), and it is **cleared** about half a second after the load drops or the player lands - instead of being left to run out on its own. Stabilising flight or touching ground now ends the nausea almost immediately, like the pre-1.3.0 behavior.
+- Applications are still floored at 4.5 seconds under the hood: vanilla cannot render shorter nausea instances at all (anything at or under its 60-tick blend-out window bleeds to zero). With the 3-second default the nausea therefore lasts as long as the instability does, plus a half-second clear delay.
+
+### Takeoff exception
+
+- Starting a glide from the ground no longer triggers G-force effects. The jump and its redirect onto the glide path read as a 20-30 G spike within a few ticks, so low-speed glide starts (below flight speed) now open a 0.75-second grace window in which no G effects or damage apply. Re-entering flight at speed - the fresh-elytra swap mid-fall - is unaffected and still counts.
+
+### Damage rate
+
+- `g_force.damage_per_gs_per_second` default raised from 0.4 to **5.0**. At the default threshold of 25 Gs that means a violent maneuver costs a couple of hearts, a 20-block landing about seven, and a terminal-velocity landing is outright death. Drop toward 0.5 if that is too brutal.
+
 ## 1.3.0 - 2026-09-02
 
 The G-force system becomes an always-on part of elytra flight instead of a consequence of being disabled, on numbers scaled to the game rather than the real world.

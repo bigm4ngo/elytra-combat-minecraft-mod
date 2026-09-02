@@ -115,9 +115,10 @@ public final class ElytraCombatConfig {
         @SerializedName("threshold_gs")
         public double thresholdGs = 25.0;
 
-        /** Damage per second for each G above the threshold, before armor. */
+        /** Damage per second for each G above the threshold, before armor. 5.0 makes hard
+         * maneuvers and landings seriously dangerous; drop toward 0.5 for a gentler mod. */
         @SerializedName("damage_per_gs_per_second")
-        public double damagePerGsPerSecond = 0.4;
+        public double damagePerGsPerSecond = 5.0;
 
         /**
          * Minimum smoothed G load before the G effects apply: darkness pulses and nausea

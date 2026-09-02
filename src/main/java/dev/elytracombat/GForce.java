@@ -26,12 +26,15 @@ import java.util.WeakHashMap;
  * reached flight-like speed. Walking, hopping, climbing, swimming, and ordinary short
  * drops stay outside the model.
  *
- * <p>Above {@code g_force.effect_threshold_gs} the load pulses darkness and nausea for as
- * long as it persists; once the load drops the effects finish within seconds on their own.
- * Above {@code g_force.threshold_gs} the load also deals damage, and because that damage
- * runs through the regular hurt pipeline the damage filter sees it as
+ * <p>Above {@code g_force.effect_threshold_gs} the load pulses darkness and nausea and
+ * keeps them going for as long as the player has not stabilised; once the load drops (or
+ * the player lands) the sustained nausea is cleared shortly after. Above
+ * {@code g_force.threshold_gs} the load also deals damage, and because that damage runs
+ * through the regular hurt pipeline the damage filter sees it as
  * {@code elytra_combat:g_force} - a fresh disable (and its mid-flight shock) can therefore
- * come from G-force alone.
+ * come from G-force alone. Ground takeoffs are exempt: a short grace window after a
+ * low-speed glide start ignores the takeoff redirect, while re-entering flight at speed
+ * still counts.
  *
  * <p>Vanilla blends nausea in over 150 ticks and darkness over 22, so instances are kept
  * longer than the blend-out windows and simply re-applied while the load persists - the
@@ -54,13 +57,23 @@ public final class GForce {
     /**
      * Shortest nausea application that can hold a distortion at all: instances at or under
      * vanilla's 60 tick blend-out advance are permanently in blend-out and bleed to zero no
-     * matter how often they are refreshed. 90 ticks caps the fade-out tail at ~2.5 seconds.
+     * matter how often they are refreshed. 90 ticks keeps short configured values visible.
      */
     private static final int NAUSEA_MIN_INSTANCE_TICKS = 90;
     /** Re-apply before the remaining nausea enters its 60 tick blend-out advance window. */
     private static final int NAUSEA_REFRESH_ADVANCE_TICKS = 70;
+    /** How long the load may stay below the effect threshold before sustained nausea is cleared. */
+    private static final int NAUSEA_CLEAR_DELAY_TICKS = 10;
     private static final int DARKNESS_DURATION_TICKS = 40;
     private static final int DARKNESS_BLEND_OUT_ADVANCE_TICKS = 22;
+    /**
+     * Takeoff exception: starting a glide from the ground yanks the jump velocity onto the
+     * look direction within a few ticks, which reads as a large load that no pilot feels.
+     * Low-speed takeoffs open this grace window during which no G effects or damage apply.
+     */
+    private static final int TAKEOFF_GRACE_TICKS = 15;
+    /** A takeoff only counts as a ground takeoff (and gets grace) below this speed. */
+    private static final double TAKEOFF_GRACE_SPEED = 1.0;
 
     private static final Map<ServerPlayer, Track> TRACKS = new WeakHashMap<>();
 
@@ -76,6 +89,11 @@ public final class GForce {
         double peakDownwardSpeed;
         double gBuffer;
         int ticksSinceApplied;
+        boolean wasFallFlying;
+        int takeoffGraceTicks;
+        /** True while the nausea on this player was applied by the mod and is being sustained. */
+        boolean nauseaSustained;
+        int ticksBelowEffectThreshold;
     }
 
     public static void tick(ServerPlayer player) {
@@ -87,13 +105,13 @@ public final class GForce {
 
         Vec3 velocity = player.getDeltaMovement();
         if (track.previousVelocity == null) {
-            seed(track, velocity, player.position());
+            seed(track, velocity, player.position(), player.isFallFlying());
             return;
         }
         Vec3 position = player.position();
         if (track.previousPosition != null && track.previousPosition.distanceTo(position) > TELEPORT_GUARD_BLOCKS) {
             // Teleported (command, chorus fruit, portal): velocity continuity is gone.
-            seed(track, velocity, position);
+            seed(track, velocity, position, player.isFallFlying());
             return;
         }
 
@@ -108,30 +126,44 @@ public final class GForce {
             track.peakDownwardSpeed = Math.max(track.peakDownwardSpeed, Math.max(0.0, -velocity.y));
         }
 
+        boolean fallFlying = player.isFallFlying();
+        if (fallFlying && !track.wasFallFlying && velocity.length() < TAKEOFF_GRACE_SPEED) {
+            // Ground takeoff: the jump and its redirect onto the glide path are not load.
+            track.takeoffGraceTicks = TAKEOFF_GRACE_TICKS;
+        }
+        track.wasFallFlying = fallFlying;
+
         double rawDelta = Math.min(velocity.subtract(track.previousVelocity).length(), MAX_DELTA_PER_TICK);
         track.smoothedDelta = GForceMath.smooth(track.smoothedDelta, rawDelta, GForceMath.SMOOTHING_ALPHA);
         track.currentGs = GForceMath.gsForDelta(track.smoothedDelta, ConfigManager.get().gForce.deltaToGs);
         track.previousVelocity = velocity;
         track.previousPosition = position;
 
-        if (eligible) {
-            applyEffects(player, track);
+        boolean grace = track.takeoffGraceTicks > 0;
+        if (grace) {
+            track.takeoffGraceTicks--;
+        }
+
+        ElytraCombatConfig config = ConfigManager.get();
+        if (eligible && !grace && track.currentGs >= config.gForce.effectThresholdGs) {
+            // Not stabilised: the load is still high, so keep the nausea going.
+            track.ticksBelowEffectThreshold = 0;
+            refreshNausea(player, config.freefall, track);
+            refreshDarkness(player, config.freefall);
+        } else if (track.nauseaSustained
+                && ++track.ticksBelowEffectThreshold >= NAUSEA_CLEAR_DELAY_TICKS) {
+            // Stabilised: the load dropped or the player is out of loaded motion entirely.
+            player.removeEffect(MobEffects.NAUSEA);
+            track.nauseaSustained = false;
+            track.ticksBelowEffectThreshold = 0;
+        }
+
+        if (eligible && !grace) {
             accrueDamage(player, track);
         }
         // Application runs regardless of current context: the landing burst is accrued
         // during eligible motion and must still land after the victim is on the ground.
         applyDamage(player, track);
-    }
-
-    private static void applyEffects(ServerPlayer player, Track track) {
-        ElytraCombatConfig config = ConfigManager.get();
-        ElytraCombatConfig.GForce gForce = config.gForce;
-        double gs = track.currentGs;
-
-        if (gs >= gForce.effectThresholdGs) {
-            refreshNausea(player, config.freefall);
-            refreshDarkness(player, config.freefall);
-        }
     }
 
     private static void accrueDamage(ServerPlayer player, Track track) {
@@ -165,12 +197,13 @@ public final class GForce {
 
     /**
      * One-off instances for the mid-flight shock, applied the moment an elytra is disabled
-     * in flight. The monitor takes over on the next tick: the fall's own acceleration keeps
-     * both effects alive while the load stays above the threshold.
+     * in flight. The monitor takes over from here: the nausea is refreshed while the load
+     * stays above the effect threshold and cleared once the player stabilises.
      */
     static void applyShockEffects(ServerPlayer player) {
+        Track track = TRACKS.computeIfAbsent(player, p -> new Track());
         ElytraCombatConfig.Freefall config = ConfigManager.get().freefall;
-        refreshNausea(player, config);
+        refreshNausea(player, config, track);
         refreshDarkness(player, config);
     }
 
@@ -179,14 +212,16 @@ public final class GForce {
         return ElytraCooldowns.isElytra(chest);
     }
 
-    private static void seed(Track track, Vec3 velocity, Vec3 position) {
+    private static void seed(Track track, Vec3 velocity, Vec3 position, boolean fallFlying) {
         track.previousVelocity = velocity;
         track.previousPosition = position;
         track.smoothedDelta = 0.0;
         track.currentGs = 0.0;
+        track.wasFallFlying = fallFlying;
+        track.takeoffGraceTicks = 0;
     }
 
-    private static void refreshNausea(ServerPlayer player, ElytraCombatConfig.Freefall config) {
+    private static void refreshNausea(ServerPlayer player, ElytraCombatConfig.Freefall config, Track track) {
         if (config.nauseaStrength <= 0) {
             return;
         }
@@ -196,6 +231,7 @@ public final class GForce {
                 || active.getAmplifier() < config.nauseaStrength - 1) {
             player.addEffect(new MobEffectInstance(MobEffects.NAUSEA,
                     duration, config.nauseaStrength - 1, false, true, true));
+            track.nauseaSustained = true;
         }
     }
 

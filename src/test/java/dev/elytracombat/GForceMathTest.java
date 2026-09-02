@@ -54,33 +54,32 @@ class GForceMathTest {
 
     @Test
     void damageIsZeroAtOrBelowThreshold() {
-        assertEquals(0.0, GForceMath.damagePerSecond(THRESHOLD_GS, THRESHOLD_GS, 0.4));
-        assertEquals(0.0, GForceMath.damagePerSecond(3.14, THRESHOLD_GS, 0.4), "sustained free fall (~7.8 Gs) never hurts");
-        assertEquals(0.0, GForceMath.damagePerTick(3.14, THRESHOLD_GS, 0.4));
+        assertEquals(0.0, GForceMath.damagePerSecond(THRESHOLD_GS, THRESHOLD_GS, 5.0));
+        assertEquals(0.0, GForceMath.damagePerSecond(3.14, THRESHOLD_GS, 5.0), "sustained free fall (~7.8 Gs) never hurts");
+        assertEquals(0.0, GForceMath.damagePerTick(3.14, THRESHOLD_GS, 5.0));
     }
 
     @Test
     void damageScalesWithLoadAboveThreshold() {
-        assertEquals(8.8, GForceMath.damagePerSecond(47.0, THRESHOLD_GS, 0.4), 1e-9);
-        assertEquals(0.44, GForceMath.damagePerTick(47.0, THRESHOLD_GS, 0.4), 1e-9);
+        assertEquals(110.0, GForceMath.damagePerSecond(47.0, THRESHOLD_GS, 5.0), 1e-9);
+        assertEquals(5.5, GForceMath.damagePerTick(47.0, THRESHOLD_GS, 5.0), 1e-9);
     }
 
     @Test
     void terminalVelocityLandingStaysTunable() {
         // With defaults, landing out of vanilla terminal velocity peaks at ~392 raw Gs and
-        // the smoothed burst (~137 Gs peak) deals a few hearts' worth of damage on top of
-        // the lethal vanilla fall damage.
+        // the smoothed burst (~137 Gs peak) is outright lethal on top of the fall damage.
         double rawGs = GForceMath.gsForDelta(TERMINAL_VELOCITY, DELTA_TO_GS);
         double peak = GForceMath.smooth(0.0, rawGs, GForceMath.SMOOTHING_ALPHA);
         double burstDamage = 0.0;
         double smoothed = peak;
         for (int i = 0; i < 20; i++) {
-            burstDamage += GForceMath.damagePerTick(smoothed, THRESHOLD_GS, 0.4);
+            burstDamage += GForceMath.damagePerTick(smoothed, THRESHOLD_GS, 5.0);
             smoothed = GForceMath.smooth(smoothed, 0.0, GForceMath.SMOOTHING_ALPHA);
         }
         assertTrue(rawGs > 200.0);
         assertTrue(peak > 100.0 && peak < 150.0);
-        assertTrue(burstDamage > 3.5 && burstDamage < 6.0);
+        assertTrue(burstDamage > 40.0 && burstDamage < 70.0);
     }
 
     @Test
@@ -91,5 +90,12 @@ class GForceMathTest {
         double gs = GForceMath.gsForDelta(smoothed, DELTA_TO_GS);
         assertEquals(35.0, gs, 1e-9);
         assertTrue(gs > THRESHOLD_GS);
+        // And at the default rate it bites: a couple of hearts of trauma from the burst.
+        double burstDamage = 0.0;
+        for (int i = 0; i < 20; i++) {
+            burstDamage += GForceMath.damagePerTick(gs, THRESHOLD_GS, 5.0);
+            gs = GForceMath.smooth(gs, 0.0, GForceMath.SMOOTHING_ALPHA);
+        }
+        assertTrue(burstDamage > 2.0 && burstDamage < 5.0);
     }
 }
