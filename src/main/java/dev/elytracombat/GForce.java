@@ -2,6 +2,7 @@ package dev.elytracombat;
 
 import dev.elytracombat.config.ConfigManager;
 import dev.elytracombat.config.ElytraCombatConfig;
+import dev.elytracombat.mixin.FireworkRocketAccessor;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -10,6 +11,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
@@ -26,15 +28,15 @@ import java.util.WeakHashMap;
  * reached flight-like speed. Walking, hopping, climbing, swimming, and ordinary short
  * drops stay outside the model.
  *
- * <p>Above {@code g_force.effect_threshold_gs} the load pulses darkness and nausea and
- * keeps them going for as long as the player has not stabilised; once the load drops (or
- * the player lands) the sustained nausea is cleared shortly after. Above
- * {@code g_force.threshold_gs} the load also deals damage, and because that damage runs
- * through the regular hurt pipeline the damage filter sees it as
- * {@code elytra_combat:g_force} - a fresh disable (and its mid-flight shock) can therefore
- * come from G-force alone. Ground takeoffs are exempt: a short grace window after a
- * low-speed glide start ignores the takeoff redirect, while re-entering flight at speed
- * still counts.
+ * <p>Above {@code g_force.effect_threshold_gs} the load pulses darkness and nausea, and the
+ * nausea keeps refreshing for as long as the player has not stabilised - high load, or
+ * simply still falling unstabilised. Once the player lands or glides it off, the sustained
+ * nausea is cleared shortly after. Above {@code g_force.threshold_gs} the load also deals
+ * damage, and because that damage runs through the regular hurt pipeline the damage filter
+ * sees it as {@code elytra_combat:g_force} - a fresh disable (and its mid-flight shock) can
+ * therefore come from G-force alone. Rockets are exempt across the board: while a firework
+ * is boosting a player there is no G-force for them at all, and a low-speed ground takeoff
+ * still opens its own short grace window.
  *
  * <p>Vanilla blends nausea in over 150 ticks and darkness over 22, so instances are kept
  * longer than the blend-out windows and simply re-applied while the load persists - the
@@ -115,10 +117,25 @@ public final class GForce {
             return;
         }
 
+        boolean fallFlying = player.isFallFlying();
+
+        // Rocket immunity: while a firework carries this player, no G effects or damage
+        // apply at all, and the model is pinned to zero so boost climbs and turns never
+        // leak into the load after the boost burns out.
+        if (fallFlying && isRocketBoosting(player)) {
+            track.previousVelocity = velocity;
+            track.previousPosition = position;
+            track.smoothedDelta = 0.0;
+            track.currentGs = 0.0;
+            track.takeoffGraceTicks = 0;
+            track.wasFallFlying = true;
+            return;
+        }
+
         boolean grounded = player.onGround() || player.isInWater() || player.isInLava() || player.onClimbable();
         // Eligibility is decided before the peak resets, so the impact tick of a real fall
         // still counts while hops and short drops (peak below the bar) never do.
-        boolean eligible = player.isFallFlying()
+        boolean eligible = fallFlying
                 || (!grounded && wearsElytra(player) && track.peakDownwardSpeed >= ELIGIBILITY_FALL_SPEED);
         if (grounded) {
             track.peakDownwardSpeed = 0.0;
@@ -126,7 +143,6 @@ public final class GForce {
             track.peakDownwardSpeed = Math.max(track.peakDownwardSpeed, Math.max(0.0, -velocity.y));
         }
 
-        boolean fallFlying = player.isFallFlying();
         if (fallFlying && !track.wasFallFlying && velocity.length() < TAKEOFF_GRACE_SPEED) {
             // Ground takeoff: the jump and its redirect onto the glide path are not load.
             track.takeoffGraceTicks = TAKEOFF_GRACE_TICKS;
@@ -145,25 +161,39 @@ public final class GForce {
         }
 
         ElytraCombatConfig config = ConfigManager.get();
-        if (eligible && !grace && track.currentGs >= config.gForce.effectThresholdGs) {
-            // Not stabilised: the load is still high, so keep the nausea going.
+        boolean loadHigh = eligible && !grace && track.currentGs >= config.gForce.effectThresholdGs;
+        // Still falling unstabilised counts even once the load itself fades toward terminal
+        // velocity: the nausea keeps refreshing until the player lands or glides it off.
+        boolean fallingFast = !grounded && !fallFlying
+                && wearsElytra(player) && velocity.y <= -ELIGIBILITY_FALL_SPEED;
+
+        if (loadHigh || fallingFast) {
             track.ticksBelowEffectThreshold = 0;
             refreshNausea(player, config.freefall, track);
-            refreshDarkness(player, config.freefall);
+            if (loadHigh) {
+                refreshDarkness(player, config.freefall);
+            }
         } else if (track.nauseaSustained
                 && ++track.ticksBelowEffectThreshold >= NAUSEA_CLEAR_DELAY_TICKS) {
-            // Stabilised: the load dropped or the player is out of loaded motion entirely.
+            // Stabilised: the load dropped and the player is no longer falling unstabilised.
             player.removeEffect(MobEffects.NAUSEA);
             track.nauseaSustained = false;
             track.ticksBelowEffectThreshold = 0;
         }
 
-        if (eligible && !grace) {
+        if (loadHigh) {
             accrueDamage(player, track);
         }
         // Application runs regardless of current context: the landing burst is accrued
         // during eligible motion and must still land after the victim is on the ground.
         applyDamage(player, track);
+    }
+
+    /** True while a firework rocket is attached to and boosting this player. */
+    private static boolean isRocketBoosting(ServerPlayer player) {
+        return !player.level().getEntitiesOfClass(FireworkRocketEntity.class,
+                player.getBoundingBox().inflate(2.0),
+                rocket -> ((FireworkRocketAccessor) rocket).elytraCombat$getAttachedTo() == player).isEmpty();
     }
 
     private static void accrueDamage(ServerPlayer player, Track track) {
@@ -231,7 +261,11 @@ public final class GForce {
                 || active.getAmplifier() < config.nauseaStrength - 1) {
             player.addEffect(new MobEffectInstance(MobEffects.NAUSEA,
                     duration, config.nauseaStrength - 1, false, true, true));
+            // Freshly applied nausea must not be stripped by a clear-delay counter that was
+            // already spent before it went on (the mid-flight shock is exactly that case:
+            // applied outside the tick loop, with the counter at any stale value).
             track.nauseaSustained = true;
+            track.ticksBelowEffectThreshold = 0;
         }
     }
 

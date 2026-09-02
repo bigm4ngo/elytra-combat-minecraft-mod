@@ -2,6 +2,19 @@
 
 All notable changes to Elytra Combat are documented here. Releases before 1.2.0 predate this document.
 
+## 1.3.2 - 2026-09-02
+
+Bug fix and the rocket exemption.
+
+### Fixed: nausea was not being applied
+
+- Two problems stacked up. First, the mid-flight shock applied its nausea outside the tick loop, and the "clear after stabilising" counter - which had usually already spent itself while the player flew quietly - stripped the fresh nausea on the very next tick. Applying nausea now resets that counter, so the shock nausea survives to be handed over to the monitor.
+- Second, the nausea refresh was gated purely on the G load, which fades as a fall approaches terminal velocity - so the nausea died mid-fall even though the player was still tumbling. Refresh now also covers **still falling unstabilised**: while a player wearing an elytra is falling faster than flight speed, the nausea keeps resetting regardless of the load. It is cleared only once they land or glide it off (about half a second later), exactly the "refreshed if not stabilised, cleared when stabilised" behavior.
+
+### Rockets are immune to G-force
+
+- While a firework rocket is boosting a player, G-force no longer applies to them at all: no darkness, no nausea, no damage - boost climbs, rocket turns, and boost landings are all exempt. The load model is also pinned to zero during the boost, so violent rocket maneuvers leave no residual load once the boost burns out. The separate ground-takeoff grace window remains for non-rocket takeoffs.
+
 ## 1.3.1 - 2026-09-02
 
 Playtest follow-ups to the G-force rework.

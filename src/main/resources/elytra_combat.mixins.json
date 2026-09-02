@@ -3,6 +3,7 @@
   "package": "dev.elytracombat.mixin",
   "compatibilityLevel": "JAVA_22",
   "mixins": [
+    "FireworkRocketAccessor",
     "LivingEntityFlightMixin",
     "ServerPlayerDamageMixin"
   ],
