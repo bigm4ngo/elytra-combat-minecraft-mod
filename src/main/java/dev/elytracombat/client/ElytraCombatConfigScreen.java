@@ -1,5 +1,6 @@
 package dev.elytracombat.client;
 
+import dev.elytracombat.client.ClientCompat;
 import dev.elytracombat.config.ConfigManager;
 import dev.elytracombat.config.ElytraCombatConfig;
 import net.minecraft.client.gui.components.Button;
@@ -46,7 +47,7 @@ public final class ElytraCombatConfigScreen extends Screen {
         addRenderableWidget(CycleButton.onOffBuilder(config.durabilityDamage.enabled)
                 .create(left, 69, 310, 20, Component.literal("Elytra durability damage"), (button, value) ->
                         config.durabilityDamage.enabled = value));
-        addRenderableWidget(CycleButton.builder(value -> Component.literal(switch (value) {
+        addRenderableWidget(ClientCompat.cycleButton(value -> Component.literal(switch (value) {
                             case "percent" -> "Percent";
                             case "flat" -> "Flat";
                             case "damage_scaled" -> "Scaled with damage";
@@ -69,10 +70,10 @@ public final class ElytraCombatConfigScreen extends Screen {
         scale = numberField(left, 135, "Damage scale (0.1-20)", Double.toString(config.durabilityDamage.damageScale));
 
         addRenderableWidget(Button.builder(Component.literal("Damage source filter..."), button ->
-                        minecraft.setScreen(new DamageFilterScreen(this, config)))
+                        ClientCompat.setScreen(minecraft, new DamageFilterScreen(this, config)))
                 .bounds(left, 159, 310, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Freefall & G-Force..."), button ->
-                        minecraft.setScreen(new FreefallScreen(this, config)))
+                        ClientCompat.setScreen(minecraft, new FreefallScreen(this, config)))
                 .bounds(left, 181, 310, 20).build());
 
         error = new StringWidget(left, 205, 310, 10, Component.empty(), font);
@@ -110,7 +111,7 @@ public final class ElytraCombatConfigScreen extends Screen {
             config.durabilityDamage.flat = Integer.parseInt(flat.getValue().trim());
             config.durabilityDamage.damageScale = Double.parseDouble(scale.getValue().trim());
             ConfigManager.saveAndApply(config);
-            minecraft.setScreen(parent);
+            ClientCompat.setScreen(minecraft, parent);
         } catch (NumberFormatException exception) {
             error.setMessage(Component.literal("Use valid whole/decimal numbers."));
         } catch (IOException | IllegalArgumentException exception) {
@@ -120,7 +121,7 @@ public final class ElytraCombatConfigScreen extends Screen {
 
     @Override
     public void onClose() {
-        minecraft.setScreen(parent);
+        ClientCompat.setScreen(minecraft, parent);
     }
 
     private static final class FreefallScreen extends Screen {
@@ -217,7 +218,7 @@ public final class ElytraCombatConfigScreen extends Screen {
                 config.gForce.damagePerGsPerSecond = Double.parseDouble(damagePerGs.getValue().trim());
                 config.gForce.deltaToGs = Double.parseDouble(deltaToGs.getValue().trim());
                 config.validate();
-                minecraft.setScreen(parent);
+                ClientCompat.setScreen(minecraft, parent);
             } catch (NumberFormatException exception) {
                 error.setMessage(Component.literal("Use valid whole/decimal numbers."));
             } catch (IllegalArgumentException exception) {
@@ -228,7 +229,7 @@ public final class ElytraCombatConfigScreen extends Screen {
         private void cancel() {
             config.freefall = originalFreefall;
             config.gForce = originalGForce;
-            minecraft.setScreen(parent);
+            ClientCompat.setScreen(minecraft, parent);
         }
 
         @Override
@@ -255,7 +256,7 @@ public final class ElytraCombatConfigScreen extends Screen {
         protected void init() {
             int left = width / 2 - 155;
             addRenderableOnly(new StringWidget(left, 12, 310, 12, title, font));
-            addRenderableWidget(CycleButton.builder(value -> Component.literal(value), config.damageFilter.mode)
+            addRenderableWidget(ClientCompat.cycleButton(value -> Component.literal(value), config.damageFilter.mode)
                     .withValues(List.of("allowlist", "denylist"))
                     .create(left, 34, 310, 20, Component.literal("Filter mode"), (button, value) ->
                             config.damageFilter.mode = value));
@@ -299,7 +300,7 @@ public final class ElytraCombatConfigScreen extends Screen {
             config.damageFilter.damageTypes = values;
             try {
                 config.validate();
-                minecraft.setScreen(parent);
+                ClientCompat.setScreen(minecraft, parent);
             } catch (IllegalArgumentException exception) {
                 error.setMessage(Component.literal(exception.getMessage()));
             }
@@ -307,7 +308,7 @@ public final class ElytraCombatConfigScreen extends Screen {
 
         private void cancel() {
             config.damageFilter = originalFilter;
-            minecraft.setScreen(parent);
+            ClientCompat.setScreen(minecraft, parent);
         }
 
         @Override

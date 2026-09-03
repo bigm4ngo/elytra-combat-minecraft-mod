@@ -23,3 +23,9 @@ Thumbs.db
 
 # Crash and heap dumps
 *.hprof
+
+# Local Gradle home for multi-version builds
+.gradle-home/
+
+# Release assembly output (built by CI / the release workflow)
+dist/

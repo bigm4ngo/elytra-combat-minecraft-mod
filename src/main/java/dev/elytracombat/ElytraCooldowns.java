@@ -1,79 +1,66 @@
 package dev.elytracombat;
 
+import dev.elytracombat.compat.Compat;
+import dev.elytracombat.compat.CooldownInfo;
 import dev.elytracombat.config.ConfigManager;
 import dev.elytracombat.config.ElytraCombatConfig;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.component.UseCooldown;
+import net.minecraft.world.level.Level;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 /**
- * Marks a disabled elytra and tracks how long it stays disabled.
- *
- * <p>The expiry is stored as an absolute game time stamp written once when the elytra is
- * disabled and removed when it clears. The item's components never change while the
- * cooldown runs, which keeps the server from resyncing the stack every tick - resyncing
- * is what made held and worn elytras replay their equip animation nonstop. The countdown
- * therefore runs in real time and matches the vanilla cooldown overlay exactly.
+ * Wears the "this elytra is disabled" marker on the elytra itself (in the stack's
+ * {@code custom_data}), so the state follows the item across inventory moves, and tracks
+ * an original cooldown component where the version supports one.
  */
 public final class ElytraCooldowns {
-    private static final String PREFIX = "elytra_combat_";
-    private static final String MARKER = PREFIX + "disabled";
-    private static final String EXPIRES_AT = PREFIX + "expires_at";
-    private static final String GROUP = PREFIX + "cooldown_group";
-    private static final String HAD_ORIGINAL = PREFIX + "had_original_cooldown";
-    private static final String ORIGINAL_SECONDS = PREFIX + "original_seconds";
-    private static final String ORIGINAL_GROUP = PREFIX + "original_group";
+    static final String MARKER = "elytra_combat_disabled";
+    static final String EXPIRES_AT = "elytra_combat_expires_at";
+    static final String GROUP = "elytra_combat_group";
+    static final String HAD_ORIGINAL = "elytra_combat_had_original";
+    static final String ORIGINAL_SECONDS = "elytra_combat_original_seconds";
+    static final String ORIGINAL_GROUP = "elytra_combat_original_group";
 
     private ElytraCooldowns() {
     }
 
     public static boolean isElytra(ItemStack stack) {
-        return stack.is(Items.ELYTRA);
+        return Compat.isElytra(stack);
     }
 
-    public static boolean isDisabled(ServerLevel level, ItemStack stack) {
-        CompoundTag tag = readTag(stack);
-        return tag.getBooleanOr(MARKER, false) && remainingTicks(level, tag) > 0;
-    }
-
-    public static int remainingTicks(ServerLevel level, ItemStack stack) {
-        return remainingTicks(level, readTag(stack));
-    }
-
-    private static int remainingTicks(ServerLevel level, CompoundTag tag) {
-        long remaining = tag.getLongOr(EXPIRES_AT, 0L) - level.getGameTime();
-        if (remaining <= 0L) {
-            return 0;
+    public static boolean isDisabled(Level level, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return false;
         }
-        return (int) Math.min(remaining, (long) Integer.MAX_VALUE);
+        CompoundTag tag = readTag(stack);
+        return Compat.tagBool(tag, MARKER, false) && remainingTicks(level, tag) > 0;
+    }
+
+    private static int remainingTicks(Level level, CompoundTag tag) {
+        long remaining = Compat.tagLong(tag, EXPIRES_AT, 0L) - level.getGameTime();
+        return (int) Math.max(0L, Math.min(Integer.MAX_VALUE, remaining));
     }
 
     /**
-     * Disables the elytra for the configured duration.
-     *
-     * @return true when a fresh disable began; false when the elytra is already disabled
-     *         (hits never extend an ongoing cooldown) or not an elytra
+     * Freshly disables an elytra, or refreshes it once an earlier marker has expired.
+     * A hit never extends an ongoing disable: the original marker is left untouched so
+     * graceless spammers cannot keep a pilot's elytra down indefinitely. Returns whether
+     * the stack now carries a fresh disable.
      */
     public static boolean disable(ServerPlayer player, ItemStack stack) {
         if (!isElytra(stack)) {
             return false;
         }
-
         CompoundTag existing = readTag(stack);
-        if (existing.getBooleanOr(MARKER, false)) {
+        if (Compat.tagBool(existing, MARKER, false)) {
             if (remainingTicks(player.level(), existing) > 0) {
                 return false;
             }
@@ -81,21 +68,23 @@ public final class ElytraCooldowns {
         }
 
         CompoundTag tag = readTag(stack);
-        UseCooldown original = stack.get(DataComponents.USE_COOLDOWN);
+        CooldownInfo original = Compat.getOriginalCooldown(stack);
         tag.putBoolean(HAD_ORIGINAL, original != null);
         if (original != null) {
             tag.putFloat(ORIGINAL_SECONDS, original.seconds());
-            original.cooldownGroup().ifPresent(id -> tag.putString(ORIGINAL_GROUP, id.toString()));
+            if (!original.group().isEmpty()) {
+                tag.putString(ORIGINAL_GROUP, original.group());
+            }
         }
 
         int ticks = ConfigManager.get().disableDurationTicks();
-        Identifier group = Identifier.fromNamespaceAndPath(ElytraCombat.MOD_ID, "disabled/" + UUID.randomUUID());
+        String group = Compat.applyDisableCooldown(player, stack, ticks);
         tag.putBoolean(MARKER, true);
-        tag.putString(GROUP, group.toString());
+        if (!group.isEmpty()) {
+            tag.putString(GROUP, group);
+        }
         tag.putLong(EXPIRES_AT, player.level().getGameTime() + ticks);
         writeTag(stack, tag);
-        stack.set(DataComponents.USE_COOLDOWN, new UseCooldown(ticks / 20.0F, Optional.of(group)));
-        player.getCooldowns().addCooldown(stack, ticks);
         return true;
     }
 
@@ -116,7 +105,7 @@ public final class ElytraCooldowns {
             return;
         }
         CompoundTag tag = readTag(stack);
-        if (tag.getBooleanOr(MARKER, false) && tag.getLongOr(EXPIRES_AT, 0L) <= player.level().getGameTime()) {
+        if (Compat.tagBool(tag, MARKER, false) && Compat.tagLong(tag, EXPIRES_AT, 0L) <= player.level().getGameTime()) {
             clear(stack);
         }
     }
@@ -144,22 +133,19 @@ public final class ElytraCooldowns {
     }
 
     private static void clearOnce(ItemStack stack, Set<ItemStack> visited) {
-        if (!stack.isEmpty() && visited.add(stack) && readTag(stack).getBooleanOr(MARKER, false)) {
+        if (!stack.isEmpty() && visited.add(stack) && Compat.tagBool(readTag(stack), MARKER, false)) {
             clear(stack);
         }
     }
 
     private static void clear(ItemStack stack) {
         CompoundTag tag = readTag(stack);
-        if (tag.getBooleanOr(HAD_ORIGINAL, false)) {
-            float seconds = tag.getFloatOr(ORIGINAL_SECONDS, 0.0F);
-            String originalGroup = tag.getStringOr(ORIGINAL_GROUP, "");
-            Optional<Identifier> group = originalGroup.isEmpty()
-                    ? Optional.empty()
-                    : Optional.of(Identifier.parse(originalGroup));
-            stack.set(DataComponents.USE_COOLDOWN, new UseCooldown(seconds, group));
+        if (Compat.tagBool(tag, HAD_ORIGINAL, false)) {
+            Compat.restoreCooldown(stack, new CooldownInfo(
+                    Compat.tagFloat(tag, ORIGINAL_SECONDS, 0.0F),
+                    Compat.tagString(tag, ORIGINAL_GROUP, "")));
         } else {
-            stack.remove(DataComponents.USE_COOLDOWN);
+            Compat.restoreCooldown(stack, null);
         }
 
         tag.remove(MARKER);

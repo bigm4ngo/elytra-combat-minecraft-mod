@@ -1,6 +1,6 @@
 package dev.elytracombat;
 
-import net.minecraft.resources.Identifier;
+import dev.elytracombat.compat.Compat;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 
@@ -48,8 +48,7 @@ public final class PhysicalDamage {
     }
 
     public static boolean isExternalPhysical(DamageSource source) {
-        Identifier id = source.typeHolder().unwrapKey().orElseThrow().identifier();
-        String value = id.toString();
+        String value = Compat.damageTypeId(source);
         if (NON_PHYSICAL.contains(value)) {
             return false;
         }

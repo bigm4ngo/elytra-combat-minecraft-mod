@@ -1,16 +1,14 @@
 package dev.elytracombat;
 
+import dev.elytracombat.compat.Compat;
 import dev.elytracombat.config.ConfigManager;
 import dev.elytracombat.config.ElytraCombatConfig;
 import dev.elytracombat.mixin.FireworkRocketAccessor;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageType;
 import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -45,8 +43,7 @@ import java.util.WeakHashMap;
  */
 public final class GForce {
     /** Registry key of the custom damage type; the death message lives in the mod's lang file. */
-    public static final ResourceKey<DamageType> G_FORCE_DAMAGE = ResourceKey.create(
-            Registries.DAMAGE_TYPE, Identifier.fromNamespaceAndPath(ElytraCombat.MOD_ID, "g_force"));
+    public static final ResourceKey<DamageType> G_FORCE_DAMAGE = Compat.gForceDamageKey();
 
     /** G-force damage is applied in batches to work with the damage cooldown instead of against it. */
     private static final int APPLICATION_INTERVAL_TICKS = 10;
@@ -176,7 +173,7 @@ public final class GForce {
         } else if (track.nauseaSustained
                 && ++track.ticksBelowEffectThreshold >= NAUSEA_CLEAR_DELAY_TICKS) {
             // Stabilised: the load dropped and the player is no longer falling unstabilised.
-            player.removeEffect(MobEffects.NAUSEA);
+            player.removeEffect(Compat.nauseaEffect());
             track.nauseaSustained = false;
             track.ticksBelowEffectThreshold = 0;
         }
@@ -212,8 +209,8 @@ public final class GForce {
         // Sub-heart leftovers decay instead of sitting in the buffer forever, which also
         // keeps tiny spikes from repeatedly poking the hurt invulnerability window.
         if (track.gBuffer >= 1.0F) {
-            DamageSource gForceDamage = player.damageSources().source(G_FORCE_DAMAGE);
-            player.hurtServer(player.level(), gForceDamage, (float) track.gBuffer);
+            DamageSource gForceDamage = Compat.gForceDamageSource(player);
+            Compat.hurt(player, gForceDamage, (float) track.gBuffer);
             track.gBuffer = 0.0;
         } else {
             track.gBuffer *= 0.5;
@@ -256,10 +253,10 @@ public final class GForce {
             return;
         }
         int duration = Math.max(config.nauseaDurationSeconds * 20, NAUSEA_MIN_INSTANCE_TICKS);
-        MobEffectInstance active = player.getEffect(MobEffects.NAUSEA);
+        MobEffectInstance active = player.getEffect(Compat.nauseaEffect());
         if (active == null || active.getDuration() <= NAUSEA_REFRESH_ADVANCE_TICKS
                 || active.getAmplifier() < config.nauseaStrength - 1) {
-            player.addEffect(new MobEffectInstance(MobEffects.NAUSEA,
+            player.addEffect(new MobEffectInstance(Compat.nauseaEffect(),
                     duration, config.nauseaStrength - 1, false, true, true));
             // Freshly applied nausea must not be stripped by a clear-delay counter that was
             // already spent before it went on (the mid-flight shock is exactly that case:
@@ -273,9 +270,9 @@ public final class GForce {
         if (!config.darkness) {
             return;
         }
-        MobEffectInstance active = player.getEffect(MobEffects.DARKNESS);
+        MobEffectInstance active = player.getEffect(Compat.darknessEffect());
         if (active == null || active.getDuration() <= DARKNESS_BLEND_OUT_ADVANCE_TICKS + 10) {
-            player.addEffect(new MobEffectInstance(MobEffects.DARKNESS, DARKNESS_DURATION_TICKS, 0, false, true, true));
+            player.addEffect(new MobEffectInstance(Compat.darknessEffect(), DARKNESS_DURATION_TICKS, 0, false, true, true));
         }
     }
 }

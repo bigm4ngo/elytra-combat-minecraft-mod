@@ -1,8 +1,8 @@
 package dev.elytracombat;
 
+import dev.elytracombat.compat.Compat;
 import dev.elytracombat.config.ConfigManager;
 import dev.elytracombat.config.ElytraCombatConfig;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.TamableAnimal;
@@ -14,9 +14,9 @@ public final class DamageFilter {
 
     public static boolean shouldTrigger(DamageSource source) {
         ElytraCombatConfig.DamageFilter filter = ConfigManager.get().damageFilter;
-        Identifier damageType = source.typeHolder().unwrapKey().orElseThrow().identifier();
+        String damageType = Compat.damageTypeId(source);
 
-        boolean matched = filter.damageTypes.contains(damageType.toString())
+        boolean matched = filter.damageTypes.contains(damageType)
                 || filter.matchDirectPlayerDamage && isDirectPlayer(source)
                 || filter.matchIndirectPlayerDamage && isIndirectPlayer(source)
                 || filter.matchPlayerOwnedEntityDamage && isPlayerOwnedEntity(source);

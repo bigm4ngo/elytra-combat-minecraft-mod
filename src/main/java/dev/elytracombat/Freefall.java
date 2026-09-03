@@ -1,5 +1,6 @@
 package dev.elytracombat;
 
+import dev.elytracombat.compat.Compat;
 import dev.elytracombat.config.ConfigManager;
 import dev.elytracombat.config.ElytraCombatConfig;
 import net.minecraft.server.level.ServerPlayer;
@@ -54,8 +55,8 @@ public final class Freefall {
         if (config.viewSnap) {
             float yawOffset = (player.getRandom().nextFloat() * 280.0F) - 140.0F;
             float pitchOffset = (player.getRandom().nextFloat() * 70.0F) - 45.0F;
-            player.forceSetRotation(player.getYRot() + yawOffset, false,
-                    Mth.clamp(player.getXRot() + pitchOffset, -90.0F, 90.0F), false);
+            Compat.forceSetRotation(player, player.getYRot() + yawOffset,
+                    Mth.clamp(player.getXRot() + pitchOffset, -90.0F, 90.0F));
         }
         state.turnRates = SpinModel.sample(state.impactSpeed, config.spinIntensity, player.getRandom()::nextDouble);
         return state;
@@ -78,7 +79,7 @@ public final class Freefall {
         // and counts as a mid-flight disable.
         if (disabled && player.isFallFlying()) {
             state = beginMidFlight(player, player.getDeltaMovement());
-            player.stopFallFlying();
+            Compat.stopFallFlying(player);
         }
         if (state != null) {
             applySpin(player, state);
@@ -105,8 +106,8 @@ public final class Freefall {
         }
         double nextPitch = player.getXRot() + rates.pitchRate();
         double pitchRate = nextPitch > 90.0 || nextPitch < -90.0 ? 0.0 : rates.pitchRate();
-        player.forceSetRotation(player.getYRot() + (float) rates.yawRate(), true,
-                player.getXRot() + (float) pitchRate, true);
+        Compat.forceSetRotation(player, player.getYRot() + (float) rates.yawRate(),
+                player.getXRot() + (float) pitchRate);
         state.turnRates = rates.decayed();
     }
 }

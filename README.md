@@ -1,8 +1,38 @@
 # Elytra Combat
 
-A server-authoritative Fabric mod for Minecraft 26.1.1. Taking configured damage while wearing an elytra disables that exact elytra for a configurable period. If the player was flying, flight ends immediately with velocity preserved - and the real trouble begins.
+A server-authoritative Fabric mod for Minecraft **1.21 through 26.2**. Taking configured damage while wearing an elytra disables that exact elytra for a configurable period. If the player was flying, flight ends immediately with velocity preserved - and the real trouble begins.
 
 Clients do not need the mod when joining a dedicated server. Install it normally in a client instance to use it in single-player. Mod Menu is optional and provides the configuration screen.
+
+## Downloads and compatibility
+
+One jar per API generation; each jar runs on every version in its range. Java 21 is enough for all 1.21.x jars, Java 25 for the 26.x jars.
+
+| Jar | Minecraft versions | Java | Fabric API | Mod Menu (optional) |
+|---|---|---|---|---|
+| `elytra-combat-1.3.3+mc1.21.1` | 1.21, 1.21.1 | >=21 | 0.116.17+1.21.1 | 11.0.x |
+| `elytra-combat-1.3.3+mc1.21.2-1.21.4` | 1.21.2, 1.21.3, 1.21.4 | >=21 | 0.106.1+1.21.2 | 12.0.x - 13.0.x |
+| `elytra-combat-1.3.3+mc1.21.5-1.21.10` | 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10 | >=21 | 0.128.2+1.21.5 | 14.0.x - 16.0.x |
+| `elytra-combat-1.3.3+mc1.21.11` | 1.21.11 | >=21 | 0.141.6+1.21.11 | 17.0.x |
+| `elytra-combat-1.3.3+mc26.1.x` | 26.1, 26.1.1, 26.1.2 | >=25 | 0.155.2+26.1.2 | 18.0.x |
+| `elytra-combat-1.3.3+mc26.2` | 26.2 | >=25 | 0.159.0+26.2 | 20.0.x |
+
+Any mod-menu version suggested in the jar's metadata works; newer versions of Mod Menu for the same Minecraft line are fine too. On 1.21/1.21.1 the item-cooldown component does not exist yet, so disabled elytras use a plain cooldown and no original cooldown is restored when the disable expires.
+
+## Building from source
+
+`./gradlew build` builds the default target (26.1.x). Every jar has its own target id:
+
+```
+./gradlew -Ptarget=mc1211  build   # 1.21.1        -> build/libs/elytra-combat-1.3.3+mc1.21.1.jar
+./gradlew -Ptarget=mc1212  build   # 1.21.2-1.21.4
+./gradlew -Ptarget=mc1215  build   # 1.21.5-1.21.10
+./gradlew -Ptarget=mc12111 build   # 1.21.11
+./gradlew -Ptarget=mc2612  build   # 26.1.x
+./gradlew -Ptarget=mc262   build   # 26.2
+```
+
+The `v`-suffixed targets (`mc1214v`, `mc12110v`, `mc2611v`) are verification builds: they compile an already-shipped flavor against the other endpoint of its range to prove the range claim, and produce no jar. All targets are built and released by CI on the `v*` tag (see `.github/workflows/release.yml`).
 
 ## Features
 

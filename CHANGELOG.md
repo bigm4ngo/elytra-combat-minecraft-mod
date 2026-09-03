@@ -2,6 +2,18 @@
 
 All notable changes to Elytra Combat are documented here. Releases before 1.2.0 predate this document.
 
+## 1.3.3 - 2026-09-03
+
+Multi-version support. Same gameplay everywhere; no behavior changes on 26.1.x.
+
+### Compatibility: Minecraft 1.21 - 26.2
+
+- The mod now ships as several jars, one per API generation, each covering a range of Minecraft versions (see the table in the README). Previously the mod was 26.1.1-only.
+- Internals were split into a shared core and per-generation compat layers that absorb vanilla's API changes across the range: the 1.21.2 `LivingEntity#hurt` → `hurtServer` split, the 1.21.2 `use_cooldown` item component (with cooldown groups from then on), the 1.21.5 `Optional`-returning NBT getters and the `CONFUSION` → `NAUSEA` field rename, the 1.21.9 `forceSetRotation` reshape, the 1.21.11 `ResourceLocation` → `Identifier` rename and the `Permissions` API that replaced `hasPermission(int)`, and the 26.2 removal of `Minecraft#setScreen`.
+- On 1.21/1.21.1 there is no cooldown component, so disabling an elytra applies a plain item cooldown and no original cooldown is remembered or restored. Every version from 1.21.2 on has full cooldown-group support.
+- The view snap and tumble use the absolute-teleport rotation packet on 1.21 - 1.21.10 and the direct rotation packet on 1.21.11+; the effect is identical.
+- Each jar's claimed range is verified by compiling its compat layer against both endpoints of the range, plus a mapping-stability audit across every version in between.
+
 ## 1.3.2 - 2026-09-02
 
 Bug fix and the rocket exemption.

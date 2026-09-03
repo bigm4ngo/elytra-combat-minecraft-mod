@@ -1,17 +1,16 @@
-package dev.elytracombat.mixin;
+package dev.elytracombat.mixin.legacy;
 
 import dev.elytracombat.DamageFilter;
 import dev.elytracombat.ElytraCooldowns;
 import dev.elytracombat.Freefall;
 import dev.elytracombat.GForce;
 import dev.elytracombat.PhysicalDamage;
-import dev.elytracombat.compat.Compat;
 import dev.elytracombat.config.ConfigManager;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,18 +20,26 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(ServerPlayer.class)
-public abstract class ServerPlayerDamageMixin {
+/**
+ * 1.21/1.21.1 flavor of the damage hooks. On this generation {@code ServerPlayer} does not
+ * declare its own {@code hurt}/{@code die} (no {@code hurtServer} split yet), so the
+ * injections target {@code LivingEntity} and filter for server players. Everything else is
+ * identical to the modern {@code dev.elytracombat.mixin.ServerPlayerDamageMixin}.
+ */
+@Mixin(LivingEntity.class)
+public abstract class LegacyServerPlayerDamageMixin {
     @Unique private ItemStack elytraCombat$wornElytra = ItemStack.EMPTY;
     @Unique private float elytraCombat$healthBefore;
     @Unique private float elytraCombat$absorptionBefore;
     @Unique private boolean elytraCombat$wasFallFlying;
     @Unique private Vec3 elytraCombat$velocityBefore;
 
-    @Inject(method = "hurtServer", at = @At("HEAD"))
-    private void elytraCombat$captureDamage(ServerLevel level, DamageSource source, float amount,
+    @Inject(method = "hurt", at = @At("HEAD"))
+    private void elytraCombat$captureDamage(DamageSource source, float amount,
                                             CallbackInfoReturnable<Boolean> cir) {
-        ServerPlayer self = (ServerPlayer) (Object) this;
+        if (!((Object) this instanceof ServerPlayer self)) {
+            return;
+        }
         ItemStack chest = self.getItemBySlot(EquipmentSlot.CHEST);
         elytraCombat$wornElytra = ElytraCooldowns.isElytra(chest) ? chest : ItemStack.EMPTY;
         elytraCombat$healthBefore = self.getHealth();
@@ -42,10 +49,12 @@ public abstract class ServerPlayerDamageMixin {
         elytraCombat$velocityBefore = self.getDeltaMovement();
     }
 
-    @Inject(method = "hurtServer", at = @At("RETURN"))
-    private void elytraCombat$applyDamageCooldown(ServerLevel level, DamageSource source, float amount,
+    @Inject(method = "hurt", at = @At("RETURN"))
+    private void elytraCombat$applyDamageCooldown(DamageSource source, float amount,
                                                   CallbackInfoReturnable<Boolean> cir) {
-        ServerPlayer self = (ServerPlayer) (Object) this;
+        if (!((Object) this instanceof ServerPlayer self)) {
+            return;
+        }
         float healthLost = Math.max(0.0F, elytraCombat$healthBefore - self.getHealth());
         float absorptionLost = Math.max(0.0F, elytraCombat$absorptionBefore - self.getAbsorptionAmount());
         boolean acceptedDamage = ConfigManager.get().absorptionBypassesDisable
@@ -59,7 +68,7 @@ public abstract class ServerPlayerDamageMixin {
 
         if (self.isAlive() && acceptedDamage && !fallDamageIgnored
                 && !elytraCombat$wornElytra.isEmpty() && DamageFilter.shouldTrigger(source)
-                && !ElytraCooldowns.isDisabled(level, elytraCombat$wornElytra)) {
+                && !ElytraCooldowns.isDisabled(self.level(), elytraCombat$wornElytra)) {
             // Fresh disable only: hits never extend an ongoing cooldown. This includes the
             // mod's own G-force damage (elytra_combat:g_force): trauma past g_force.threshold_gs
             // can disable a working elytra on its own, mid-maneuver or on a hard landing.
@@ -68,7 +77,7 @@ public abstract class ServerPlayerDamageMixin {
             }
             if (ElytraCooldowns.disable(self, elytraCombat$wornElytra) && elytraCombat$wasFallFlying) {
                 Freefall.beginMidFlight(self, elytraCombat$velocityBefore);
-                Compat.stopFallFlying(self);
+                self.stopFallFlying();
             }
         }
 
@@ -79,7 +88,9 @@ public abstract class ServerPlayerDamageMixin {
 
     @Inject(method = "die", at = @At("HEAD"))
     private void elytraCombat$clearOnDeath(DamageSource source, CallbackInfo ci) {
-        ServerPlayer self = (ServerPlayer) (Object) this;
+        if (!((Object) this instanceof ServerPlayer self)) {
+            return;
+        }
         ElytraCooldowns.clearAll(self);
         Freefall.clear(self);
         GForce.clear(self);

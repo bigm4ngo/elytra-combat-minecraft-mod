@@ -1,13 +1,13 @@
 package dev.elytracombat;
 
 import com.mojang.brigadier.Command;
+import dev.elytracombat.compat.Compat;
 import dev.elytracombat.config.ConfigManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.permissions.Permissions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +30,7 @@ public final class ElytraCombat implements ModInitializer {
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> dispatcher.register(
                 Commands.literal("elytracombat")
-                        .requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER))
+                        .requires(source -> Compat.isGameMaster(source))
                         .then(Commands.literal("reload").executes(context -> {
                             try {
                                 ConfigManager.reload();

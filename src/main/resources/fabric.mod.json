@@ -12,14 +12,14 @@
     "main": ["dev.elytracombat.ElytraCombat"],
     "modmenu": ["dev.elytracombat.client.ElytraCombatModMenu"]
   },
-  "mixins": ["elytra_combat.mixins.json"],
+  "mixins": ["${mixinConfig}"],
   "depends": {
     "fabricloader": ">=0.18.4",
-    "minecraft": "=26.1.1",
-    "java": ">=25",
+    "minecraft": "${minecraftDepends}",
+    "java": "${javaDepends}",
     "fabric-api": "*"
   },
   "suggests": {
-    "modmenu": ">=18.0.0-beta.1"
+    "modmenu": "${modmenuSuggests}"
   }
 }
